@@ -8,7 +8,10 @@ import {
   isUserProfile,
   safeGetNestedValue,
   safeArrayAccess,
-  isValidLoginRequest
+  isValidLoginRequest,
+  safeExtractActionToken,
+  safeExtractPasswordFromPending,
+  safeGetStringFromContext
 } from "./safetyUtils";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 
@@ -191,6 +194,96 @@ describe("Safety Utilities", () => {
     it("should return false for non-string password", () => {
       const dto = { email: "test@example.com", password: 123 };
       expect(isValidLoginRequest(dto)).toBe(false);
+    });
+  });
+
+  describe("isAuthSession", () => {
+    it("should return true for valid AuthSession", () => {
+      const session: AuthSession = { accessToken: "valid_token" };
+      expect(isAuthSession(session)).toBe(true);
+    });
+
+    it("should return false for empty accessToken", () => {
+      const session: AuthSession = { accessToken: "" };
+      expect(isAuthSession(session)).toBe(false);
+    });
+
+    it("should return true with refreshToken and profile", () => {
+      const session: AuthSession = {
+        accessToken: "valid_token",
+        refreshToken: "refresh_token",
+        profile: { id: "1", email: "test@example.com" }
+      };
+      expect(isAuthSession(session)).toBe(true);
+    });
+  });
+
+  describe("isUserProfile", () => {
+    it("should return true for valid UserProfile", () => {
+      const profile: UserProfile = { id: "1", email: "test@example.com" };
+      expect(isUserProfile(profile)).toBe(true);
+    });
+
+    it("should return false for missing id", () => {
+      const profile = { email: "test@example.com" };
+      expect(isUserProfile(profile)).toBe(false);
+    });
+
+    it("should return false for missing email", () => {
+      const profile = { id: "1" };
+      expect(isUserProfile(profile)).toBe(false);
+    });
+  });
+
+  describe("safeExtractActionToken", () => {
+    it("should return valid token", () => {
+      expect(safeExtractActionToken("valid_token")).toBe("valid_token");
+    });
+
+    it("should return empty string for undefined", () => {
+      expect(safeExtractActionToken(undefined)).toBe("");
+    });
+
+    it("should return empty string for empty string", () => {
+      expect(safeExtractActionToken("")).toBe("");
+    });
+
+    it("should return empty string for whitespace-only string", () => {
+      expect(safeExtractActionToken("   ")).toBe("");
+    });
+  });
+
+  describe("safeExtractPasswordFromPending", () => {
+    it("should return password when available", () => {
+      const pending: LoginRequestDTO = { email: "test@example.com", password: "pass123" };
+      expect(safeExtractPasswordFromPending(pending)).toBe("pass123");
+    });
+
+    it("should return empty string when pending is undefined", () => {
+      expect(safeExtractPasswordFromPending(undefined)).toBe("");
+    });
+
+    it("should return empty string when password is not a string", () => {
+      const pending = { email: "test@example.com", password: 123 } as any;
+      expect(safeExtractPasswordFromPending(pending)).toBe("");
+    });
+  });
+
+  describe("safeGetStringFromContext", () => {
+    it("should return valid string", () => {
+      expect(safeGetStringFromContext("valid_string")).toBe("valid_string");
+    });
+
+    it("should return fallback for undefined", () => {
+      expect(safeGetStringFromContext(undefined)).toBe("");
+    });
+
+    it("should return custom fallback", () => {
+      expect(safeGetStringFromContext(undefined, "fallback")).toBe("fallback");
+    });
+
+    it("should return fallback for non-string", () => {
+      expect(safeGetStringFromContext(123 as any)).toBe("");
     });
   });
 });

@@ -537,6 +537,69 @@ describe("Auth Machine", () => {
       expect(actor.getSnapshot().context.session).toBeNull();
     });
   });
+
+  describe("Branch Coverage Tests", () => {
+    it("should handle checkSession error", async () => {
+      (mockRepo.checkSession as jest.Mock).mockRejectedValue(new Error("Network error"));
+
+      const actor = createTestActor();
+      await waitForState(actor, (s) => s.matches("unauthorized"));
+
+      // The error might not be set on the context during checkSession error
+      // Just ensure it transitions to unauthorized as expected
+      expect(actor.getSnapshot().value).toEqual({ unauthorized: { login: "idle" }});
+    });
+
+    it("should handle error in login with null error object", async () => {
+      (mockRepo.checkSession as jest.Mock).mockResolvedValue(null);
+      // Test with null error object that causes fallback to default error message
+      (mockRepo.login as jest.Mock).mockRejectedValue(null);
+
+      const actor = createTestActor();
+      await waitForState(actor, (s) => s.matches("unauthorized"));
+
+      const p1 = waitForState(
+        actor,
+        (s) =>
+          s.matches({ unauthorized: { login: "idle" } }) &&
+          s.context.error?.message === "An unexpected error occurred"
+      );
+      actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
+      await p1;
+
+      expect(actor.getSnapshot().context.error?.message).toBe("An unexpected error occurred");
+    });
+
+    it("should handle error in register with null error object", async () => {
+      (mockRepo.checkSession as jest.Mock).mockResolvedValue(null);
+      (mockRepo.register as jest.Mock).mockRejectedValue(null);
+
+      const actor = createTestActor();
+      await waitForState(actor, (s) => s.matches("unauthorized"));
+
+      // Navigate to register
+      const toRegister = waitForState(actor, (s) =>
+        s.matches({ unauthorized: { register: "form" } })
+      );
+      actor.send({ type: "GO_TO_REGISTER" });
+      await toRegister;
+
+      // Try to register - should fail
+      const backToForm = waitForState(
+        actor,
+        (s) =>
+          s.matches({ unauthorized: { register: "form" } }) &&
+          s.context.error?.message === "An unexpected error occurred"
+      );
+      actor.send({
+        type: "REGISTER",
+        payload: { email: "a", password: "b" },
+      });
+      await backToForm;
+
+      expect(actor.getSnapshot().context.error?.message).toBe("An unexpected error occurred");
+    });
+  });
 });
 
 describe("resolveRegistrationPassword", () => {

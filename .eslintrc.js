@@ -96,6 +96,10 @@ module.exports = {
     "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     "@typescript-eslint/prefer-includes": "warn",
     "@typescript-eslint/no-restricted-imports": "error",
-    "@typescript-eslint/no-implicit-any-catch": "warn"
+    "@typescript-eslint/no-implicit-any-catch": "warn",
+    // Complexity rules - keeping at 10 as it's reasonable for real code
+    "complexity": ["error", 10],
+    "max-depth": ["error", 4],
+    "max-lines-per-function": ["error", 50]
   }
 };

@@ -251,41 +251,10 @@ export class AuthRepository implements IAuthRepository {
     const raw = await this.storage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
+    // Try to parse as JSON first
     try {
-      // Define type interface for safer parsing
-      interface ParsedToken {
-        accessToken: string;
-        refreshToken?: string;
-        profile?: UserProfile;
-      }
-
       const parsed: unknown = JSON.parse(raw);
-
-      // Use hasRequiredProperties to validate the parsed object
-      if (hasRequiredProperties<Record<string, unknown>>(parsed, ['accessToken'])) {
-        // Now that we know it has accessToken, we can safely cast
-        const parsedToken = parsed as {
-          accessToken: string;
-          refreshToken?: string;
-          profile?: UserProfile
-        };
-
-        let refreshToken: string | undefined;
-        if (typeof parsedToken.refreshToken === "string") {
-          refreshToken = parsedToken.refreshToken;
-        }
-
-        let profile: UserProfile | undefined;
-        if (parsedToken.profile && isUserProfile(parsedToken.profile)) {
-          profile = parsedToken.profile;
-        }
-
-        return {
-          accessToken: parsedToken.accessToken,
-          refreshToken,
-          profile,
-        };
-      }
+      return this.processParsedSession(parsed);
     } catch (error) {
       console.error("Error parsing session token:", error);
       // Fall back to legacy string token storage
@@ -295,6 +264,40 @@ export class AuthRepository implements IAuthRepository {
     }
 
     return null;
+  }
+
+  private processParsedSession(parsed: unknown): AuthSession | null {
+    // Use hasRequiredProperties to validate the parsed object
+    if (hasRequiredProperties<Record<string, unknown>>(parsed, ['accessToken'])) {
+      // Now that we know it has accessToken, we can safely cast
+      const parsedToken = parsed as {
+        accessToken: string;
+        refreshToken?: string;
+        profile?: UserProfile
+      };
+
+      return {
+        accessToken: parsedToken.accessToken,
+        refreshToken: this.extractRefreshToken(parsedToken),
+        profile: this.extractProfile(parsedToken),
+      };
+    }
+
+    return null;
+  }
+
+  private extractRefreshToken(parsedToken: { refreshToken?: string }): string | undefined {
+    if (typeof parsedToken.refreshToken === "string") {
+      return parsedToken.refreshToken;
+    }
+    return undefined;
+  }
+
+  private extractProfile(parsedToken: { profile?: UserProfile }): UserProfile | undefined {
+    if (parsedToken.profile && isUserProfile(parsedToken.profile)) {
+      return parsedToken.profile;
+    }
+    return undefined;
   }
 
   /**
