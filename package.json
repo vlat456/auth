@@ -1,0 +1,26 @@
+{
+  "name": "@your-app/auth-logic",
+  "version": "0.1.0",
+  "description": "Decoupled Auth Logic with XState and Repository Pattern",
+  "main": "src/features/auth/index.ts",
+  "scripts": {
+    "test": "jest src/features/auth",
+    "test:watch": "jest src/features/auth --watch",
+    "test:coverage": "jest src/features/auth --coverage",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "xstate": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0"
+  }
+}

@@ -1,0 +1,510 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+      "title": "Astra Authentication API",
+      "description": "Complete authentication system with traditional registration, OTP-based registration/activation, password reset, and JWT token management",
+      "version": "1.0.0",
+      "contact": {
+        "name": "Astra Backend"
+      }
+    },
+    "servers": [
+      {
+        "url": "https://api.astra.example.com",
+        "description": "Production server"
+      }
+    ],
+    "security": [
+      {
+        "bearerAuth": []
+      }
+    ],
+    "paths": {
+      "/auth/register": {
+        "post": {
+          "summary": "Register New User",
+          "description": "Initiates user registration. Creates a pending user (or resends OTP if already pending) and sends a 6-digit activation OTP to the email.",
+          "operationId": "register",
+          "tags": ["Registration"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterRequestDTO"
+                },
+                "example": {
+                  "email": "user@example.com",
+                  "password": "MyStrongPass123!"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Registration initiated – OTP sent",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiSuccessResponse_NullData"
+                  },
+                  "example": {
+                    "status": 201,
+                    "message": "Registration initiated. Please check your email for an activation OTP.",
+                    "data": null
+                  }
+                }
+              }
+            },
+            "400": {
+              "$ref": "#/components/responses/BadRequestError"
+            },
+            "409": {
+              "description": "User already exists and is active",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiErrorResponse"
+                  },
+                  "example": {
+                    "status": 409,
+                    "error": "Conflict",
+                    "errorId": "auth.register.userAlreadyExists",
+                    "message": "This email address is already registered.",
+                    "path": "/auth/register"
+                  }
+                }
+              }
+            },
+            "429": {
+              "$ref": "#/components/responses/RateLimitError"
+            }
+          }
+        }
+      },
+  
+      "/auth/login": {
+        "post": {
+          "summary": "User Login",
+          "operationId": "login",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginRequestDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Login successful",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiSuccessResponse_LoginResponse"
+                  }
+                }
+              }
+            },
+            "401": { "$ref": "#/components/responses/UnauthorizedError" },
+            "403": { "$ref": "#/components/responses/AccountNotActivatedError" },
+            "429": { "$ref": "#/components/responses/RateLimitError" }
+          }
+        }
+      },
+  
+      "/auth/otp/request": {
+        "post": {
+          "summary": "Request OTP",
+          "operationId": "requestOtp",
+          "tags": ["OTP"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestOtpDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "$ref": "#/components/responses/SuccessNoData" },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "429": { "$ref": "#/components/responses/RateLimitError" }
+          }
+        }
+      },
+  
+      "/auth/otp/verify": {
+        "post": {
+          "summary": "Verify OTP → Get Action Token",
+          "operationId": "verifyOtp",
+          "tags": ["OTP"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "OTP verified",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiSuccessResponse_ActionToken"
+                  }
+                }
+              }
+            },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "429": { "$ref": "#/components/responses/RateLimitError" }
+          }
+        }
+      },
+  
+      "/auth/register/complete": {
+        "post": {
+          "summary": "Complete Registration (Activate + Set Password)",
+          "operationId": "completeRegistration",
+          "tags": ["Registration"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteRegistrationDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "$ref": "#/components/responses/SuccessNoData" },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "409": { "$ref": "#/components/responses/ConflictError" },
+            "500": { "$ref": "#/components/responses/InternalError" }
+          }
+        }
+      },
+  
+      "/auth/password/reset/complete": {
+        "post": {
+          "summary": "Complete Password Reset",
+          "operationId": "completePasswordReset",
+          "tags": ["Password"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletePasswordResetDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "$ref": "#/components/responses/SuccessNoData" },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "403": { "$ref": "#/components/responses/ForbiddenError" },
+            "404": { "$ref": "#/components/responses/NotFoundError" }
+          }
+        }
+      },
+  
+      "/auth/password/change": {
+        "post": {
+          "summary": "Change Password (Authenticated)",
+          "operationId": "changePassword",
+          "tags": ["Password"],
+          "security": [{ "bearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePasswordRequestDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "$ref": "#/components/responses/SuccessNoData" },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "403": { "$ref": "#/components/responses/ForbiddenError" },
+            "404": { "$ref": "#/components/responses/NotFoundError" }
+          }
+        }
+      },
+  
+      "/auth": {
+        "delete": {
+          "summary": "Delete Account",
+          "operationId": "deleteAccount",
+          "tags": ["Account"],
+          "security": [{ "bearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAccountRequestDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "$ref": "#/components/responses/SuccessNoData" },
+            "400": { "$ref": "#/components/responses/BadRequestError" },
+            "404": { "$ref": "#/components/responses/NotFoundError" }
+          }
+        }
+      },
+  
+      "/auth/refresh-token": {
+        "post": {
+          "summary": "Refresh Access Token",
+          "operationId": "refreshToken",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshRequestDTO"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Token refreshed",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiSuccessResponse_RefreshResponse"
+                  }
+                }
+              }
+            },
+            "401": { "$ref": "#/components/responses/UnauthorizedError" }
+          }
+        }
+      }
+    },
+  
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      },
+      "schemas": {
+        "RegisterRequestDTO": {
+          "type": "object",
+          "required": ["email", "password"],
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "example": "user@example.com"
+            },
+            "password": {
+              "type": "string",
+              "format": "password",
+              "minLength": 8,
+              "example": "MyStrongPass123!"
+            }
+          }
+        },
+  
+        "LoginRequestDTO": {
+          "type": "object",
+          "required": ["email", "password"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "password": { "type": "string", "format": "password", "minLength": 8 }
+          }
+        },
+  
+        "LoginResponseDTO": {
+          "type": "object",
+          "required": ["accessToken", "refreshToken"],
+          "properties": {
+            "accessToken": { "type": "string" },
+            "refreshToken": { "type": "string" }
+          }
+        },
+  
+        "RequestOtpDTO": {
+          "type": "object",
+          "required": ["email"],
+          "properties": { "email": { "type": "string", "format": "email" } }
+        },
+  
+        "VerifyOtpDTO": {
+          "type": "object",
+          "required": ["email", "otp"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "otp": { "type": "string", "pattern": "^\\d{6}$", "example": "483920" }
+          }
+        },
+  
+        "CompleteRegistrationDTO": {
+          "type": "object",
+          "required": ["actionToken", "newPassword"],
+          "properties": {
+            "actionToken": { "type": "string" },
+            "newPassword": { "type": "string", "format": "password", "minLength": 8 }
+          }
+        },
+  
+        "CompletePasswordResetDTO": {
+          "type": "object",
+          "required": ["actionToken", "newPassword"],
+          "properties": {
+            "actionToken": { "type": "string" },
+            "newPassword": { "type": "string", "format": "password", "minLength": 8 }
+          }
+        },
+  
+        "ChangePasswordRequestDTO": {
+          "type": "object",
+          "required": ["email", "newPassword"],
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "newPassword": { "type": "string", "format": "password", "minLength": 8 }
+          }
+        },
+  
+        "DeleteAccountRequestDTO": {
+          "type": "object",
+          "required": ["email"],
+          "properties": { "email": { "type": "string", "format": "email" } }
+        },
+  
+        "RefreshRequestDTO": {
+          "type": "object",
+          "required": ["refreshToken"],
+          "properties": { "refreshToken": { "type": "string" } }
+        },
+  
+        "RefreshResponseData": {
+          "type": "object",
+          "required": ["accessToken"],
+          "properties": { "accessToken": { "type": "string" } }
+        },
+  
+        "ApiSuccessResponse_Base": {
+          "type": "object",
+          "required": ["status", "message"],
+          "properties": {
+            "status": { "type": "integer" },
+            "message": { "type": "string" },
+            "data": { "type": ["object", "null"], "nullable": true }
+          }
+        },
+  
+        "ApiSuccessResponse_NullData": {
+          "allOf": [
+            { "$ref": "#/components/schemas/ApiSuccessResponse_Base" },
+            { "properties": { "data": { "type": "null" } } }
+          ]
+        },
+  
+        "ApiSuccessResponse_LoginResponse": {
+          "allOf": [
+            { "$ref": "#/components/schemas/ApiSuccessResponse_Base" },
+            { "properties": { "data": { "$ref": "#/components/schemas/LoginResponseDTO" } } }
+          ]
+        },
+  
+        "ApiSuccessResponse_ActionToken": {
+          "allOf": [
+            { "$ref": "#/components/schemas/ApiSuccessResponse_Base" },
+            {
+              "properties": {
+                "data": {
+                  "type": "object",
+                  "required": ["actionToken"],
+                  "properties": { "actionToken": { "type": "string" } }
+                }
+              }
+            }
+          ]
+        },
+  
+        "ApiSuccessResponse_RefreshResponse": {
+          "allOf": [
+            { "$ref": "#/components/schemas/ApiSuccessResponse_Base" },
+            { "properties": { "data": { "$ref": "#/components/schemas/RefreshResponseData" } } }
+          ]
+        },
+  
+        "ApiErrorResponse": {
+          "type": "object",
+          "required": ["status", "error", "errorId", "message", "path"],
+          "properties": {
+            "status": { "type": "integer" },
+            "error": { "type": "string" },
+            "errorId": { "type": "string" },
+            "message": { "type": "string" },
+            "path": { "type": "string" }
+          }
+        }
+      },
+  
+      "responses": {
+        "SuccessNoData": {
+          "description": "Success (no data)",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApiSuccessResponse_NullData" }
+            }
+          }
+        },
+        "BadRequestError": {
+          "description": "Bad Request",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "UnauthorizedError": {
+          "description": "Unauthorized",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "ForbiddenError": {
+          "description": "Forbidden",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "NotFoundError": {
+          "description": "Not Found",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "ConflictError": {
+          "description": "Conflict",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "RateLimitError": {
+          "description": "Too Many Requests",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "AccountNotActivatedError": {
+          "description": "Account not activated",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        },
+        "InternalError": {
+          "description": "Internal Server Error",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiErrorResponse" } } }
+        }
+      }
+    }
+  }

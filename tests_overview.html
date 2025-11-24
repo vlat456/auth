@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests Overview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #0056b3;
+        }
+        h1 {
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }
+        h2 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: "Courier New", Courier, monospace;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .flow {
+            border-left: 3px solid #007bff;
+            padding-left: 15px;
+            margin-top: 15px;
+        }
+        .test-file {
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <h1>Auth Logic Test Suite Overview</h1>
+
+    <div class="container">
+        <h2>Architectural Approach to Testing</h2>
+        <p>
+            The project's testing strategy mirrors its decoupled architecture, which separates state management (XState) from side effects (API calls). This results in two primary layers of tests:
+        </p>
+        <ul>
+            <li>
+                <strong>State Machine Logic (<span class="test-file">authMachine.test.ts</span>):</strong> Focuses on testing the user-facing flows and application logic, ensuring the system transitions between states correctly in response to events.
+            </li>
+            <li>
+                <strong>Data & API Repository (<span class="test-file">AuthRepository.test.ts</span>):</strong> Focuses on testing the implementation details of data fetching, API communication, session management (JWTs), and error handling.
+            </li>
+        </ul>
+        <p>
+            This separation allows for robust, isolated testing. The state machine can be tested without making real network requests, and the repository can be tested without needing to manage application state.
+        </p>
+    </div>
+
+    <div class="container">
+        <h2>I. State Machine Flow Tests: <code>authMachine.test.ts</code></h2>
+        <p>
+            These tests validate the core application logic by simulating user interactions and asserting state transitions. The <code>AuthRepository</code> is mocked, allowing the tests to focus solely on the machine's behavior.
+        </p>
+        
+        <h3>Test Hierarchy:</h3>
+        <ul>
+            <li>
+                <strong><code>describe("Auth Machine")</code></strong>
+                <ul>
+                    <li>
+                        <div class="flow">
+                            <strong>Initialization:</strong>
+                            <p>Checks the initial state when the app starts.</p>
+                            <ul>
+                                <li><code>test("should move to unauthorized if no session")</code></li>
+                                <li><code>test("should move to authorized if session exists")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Login Flow:</strong>
+                            <p>Tests the complete login sequence.</p>
+                            <ul>
+                                <li><code>test("should handle success")</code>: User logs in, machine transitions to <code>authorized</code>.</li>
+                                <li><code>test("should handle failure and retry")</code>: API fails, machine enters a failure state, and a <code>RETRY</code> event returns it to an idle state.</li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Register Flow:</strong>
+                            <p>Tests the user registration sequence.</p>
+                            <ul>
+                                <li><code>test("should handle success")</code>: User registers, machine transitions to <code>authorized</code>.</li>
+                                <li><code>test("should handle failure")</code>: API fails, machine enters a failure state with an error message.</li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Forgot Password Flow:</strong>
+                            <p>Tests the entire multi-step password reset process, which is a key feature.</p>
+                            <ul>
+                                <li><code>test("should handle the full forgot password flow")</code>: A comprehensive test that simulates the following sequence:
+                                    <ol>
+                                        <li>Submit email for password reset.</li>
+                                        <li>Verify the one-time password (OTP).</li>
+                                        <li>Submit the new password.</li>
+                                        <li>Transition to the <code>authorized</code> state upon success.</li>
+                                    </ol>
+                                </li>
+                                <li><code>test("should handle failure")</code>: Tests what happens if the initial email submission fails.</li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Navigation & Logout:</strong>
+                            <p>Ensures smooth transitions between UI states and a clean logout.</p>
+                            <ul>
+                                <li><code>test("should navigate between sub-states")</code>: Checks navigation between login and register forms.</li>
+                                <li><code>test("should logout and clear user")</code>: Verifies that a <code>LOGOUT</code> event clears user data and returns to the <code>unauthorized</code> state.</li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>II. Repository & API Tests: <code>AuthRepository.test.ts</code></h2>
+        <p>
+            These tests validate the data layer, ensuring that the application correctly interacts with the backend API and manages local session storage. <code>axios</code> and <code>IStorage</code> are mocked to simulate network and storage operations.
+        </p>
+
+        <h3>Test Hierarchy:</h3>
+        <ul>
+            <li>
+                <strong><code>describe("AuthRepository")</code></strong>
+                <ul>
+                    <li>
+                        <div class="flow">
+                            <strong>Login & Register:</strong>
+                            <p>Verifies that API calls are made correctly and session tokens are stored.</p>
+                            <ul>
+                                <li><code>test("should call API, save token, and return user on success")</code></li>
+                                <li><code>test("should surface server errors when login fails")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Check Session (JWT Logic):</strong>
+                            <p>This is a critical set of tests for session integrity.</p>
+                            <ul>
+                                <li><code>test("should return null if no token exists")</code></li>
+                                <li><code>test("should skip API and LOGOUT if token is LOCALLY expired")</code>: Crucially, this prevents unnecessary network requests for expired tokens.</li>
+                                <li><code>test("should proceed to API if token is LOCALLY valid")</code></li>
+                                <li><code>test("should LOGOUT if token is locally valid but SERVER rejects it (401)")</code>: Handles cases where a session is revoked server-side.</li>
+                                <li><code>test("should handle malformed tokens gracefully")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Password Reset (Forgot Password, Verify OTP, etc.):</strong>
+                            <p>Tests each discrete API call in the password reset flow.</p>
+                            <ul>
+                                <li><code>test("should call forgot-password endpoint")</code></li>
+                                <li><code>test("should call verify-otp endpoint")</code></li>
+                                <li><code>test("should call reset-password endpoint and return user on success")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Error Handling & Resilience:</strong>
+                            <p>Ensures the application is resilient to network issues.</p>
+                            <ul>
+                                <li><code>describe("Retry Logic")</code>: Tests the automatic retry mechanism for transient server errors (e.g., HTTP 503).</li>
+                                <li><code>describe("handleError")</code>: Verifies that the repository extracts and throws the correct error messages from API responses.</li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+</body>
+</html>

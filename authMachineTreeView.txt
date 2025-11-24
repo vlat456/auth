@@ -1,0 +1,82 @@
+Auth State Machine Tree View:
+
+- checkingSession
+  - onDone:
+    - (guard: session exists) -> authorized
+    - (no session) -> unauthorized
+  - onError: -> unauthorized
+
+- unauthorized
+  - initial: login
+  - states:
+    - login
+      - initial: idle
+      - on:
+        - GO_TO_REGISTER: -> register
+        - GO_TO_FORGOT_PASSWORD: -> forgotPassword
+      - states:
+        - idle
+          - on: LOGIN -> submitting
+        - submitting
+          - on: CANCEL -> idle
+          - invoke: loginUser
+          - onDone: -> #auth.authorized (actions: setUser)
+          - onError: -> failure (actions: setError)
+        - failure
+          - on:
+            - RETRY: -> idle (actions: clearError)
+            - LOGIN: -> submitting
+    - register
+      - initial: idle
+      - on:
+        - GO_TO_LOGIN: -> login
+      - states:
+        - idle
+          - on: REGISTER -> submitting
+        - submitting
+          - on: CANCEL -> idle
+          - invoke: registerUser
+          - onDone: -> #auth.authorized (actions: setUser)
+          - onError: -> failure (actions: setError)
+        - failure
+          - on:
+            - RETRY: -> idle (actions: clearError)
+            - REGISTER: -> submitting
+    - forgotPassword
+      - initial: idle
+      - on:
+        - GO_TO_LOGIN: -> login (actions: clearForgotPasswordContext)
+      - states:
+        - idle
+          - on: FORGOT_PASSWORD -> submitting (actions: setEmail)
+        - submitting
+          - on: CANCEL -> idle
+          - invoke: requestPasswordReset
+          - onDone: -> verifyOtp
+          - onError: -> failure (actions: setError)
+        - verifyOtp
+          - on:
+            - VERIFY_OTP: -> verifyingOtp (actions: setOtp, guard: email exists)
+        - verifyingOtp
+          - invoke: verifyOtp
+          - onDone: -> resetPassword
+          - onError: -> failure (actions: setError)
+        - resetPassword
+          - on:
+            - RESET_PASSWORD: -> resettingPassword (guard: email and otp exist)
+        - resettingPassword
+          - invoke: resetPassword
+          - onDone: -> #auth.authorized (actions: setUser, clearForgotPasswordContext)
+          - onError: -> failure (actions: setError)
+        - failure
+          - on:
+            - RETRY: -> idle (actions: clearError)
+
+- authorized
+  - on:
+    - LOGOUT: -> loggingOut
+
+- loggingOut
+  - invoke: logoutUser
+  - onDone: -> unauthorized (actions: clearUser)
+  - onError: -> authorized (actions: setError)

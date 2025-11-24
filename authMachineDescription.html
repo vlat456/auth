@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth State Machine Description</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .state {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .event {
+            font-weight: bold;
+        }
+        .note {
+            font-style: italic;
+            color: #555;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Auth State Machine Description</h1>
+
+    <p>This document describes the state machine responsible for handling authentication logic in the application. It is built using XState.</p>
+
+    <h2>States</h2>
+
+    <div class="state">
+        <h3><code>checkingSession</code></h3>
+        <p>The initial state. It checks if a user session exists.</p>
+        <ul>
+            <li>On success (session found), it transitions to <code>authorized</code>.</li>
+            <li>On failure (no session), it transitions to <code>unauthorized</code>.</li>
+        </ul>
+    </div>
+
+    <div class="state">
+        <h3><code>unauthorized</code></h3>
+        <p>The parent state for all unauthenticated user flows.</p>
+        <h4>Child States:</h4>
+        <ul>
+            <li><strong><code>login</code></strong>: The default state for logging in.
+                <ul>
+                    <li><code>idle</code>: Waiting for user input.</li>
+                    <li><code>submitting</code>: Sending login credentials to the server.</li>
+                </ul>
+                <p class="note">On submission failure (e.g., invalid credentials), the machine returns to the <code>idle</code> state and an error message is populated in the context for the UI to display.</p>
+            </li>
+            <li><strong><code>register</code></strong>: Handles user registration.
+                <ul>
+                    <li><code>idle</code>: Waiting for user input.</li>
+                    <li><code>submitting</code>: Sending registration details to the server.</li>
+                </ul>
+                <p class="note">On submission failure (e.g., email already exists), the machine returns to the <code>idle</code> state and an error message is populated in the context.</p>
+            </li>
+            <li><strong><code>forgotPassword</code></strong>: Manages the password reset flow.
+                <ul>
+                    <li><code>idle</code>: Waiting for the user to enter their email.</li>
+                    <li><code>submitting</code>: Requesting a password reset from the server.</li>
+                    <li><code>verifyOtp</code>: Waiting for the user to enter the OTP.</li>
+                    <li><code>verifyingOtp</code>: Sending the OTP to the server for verification.</li>
+                    <li><code>resetPassword</code>: Waiting for the user to enter a new password.</li>
+                    <li><code>resettingPassword</code>: Sending the new password to the server.</li>
+                </ul>
+                 <p class="note">On failure at any step (e.g., email not found, invalid OTP), the machine returns to the state for that step (e.g., <code>idle</code> or <code>verifyOtp</code>) and populates an error message in the context.</p>
+            </li>
+        </ul>
+    </div>
+
+    <div class="state">
+        <h3><code>authorized</code></h3>
+        <p>The user is authenticated and has a valid session. The only available event is <code>LOGOUT</code>.</p>
+    </div>
+
+    <div class="state">
+        <h3><code>loggingOut</code></h3>
+        <p>This state is responsible for clearing the user session and transitioning back to the <code>unauthorized</code> state.</p>
+    </div>
+
+    <h2>Events</h2>
+    <ul>
+        <li><code class="event">CHECK_SESSION</code>: Triggered on machine start to check for an existing session.</li>
+        <li><code class="event">LOGIN</code>: Dispatched with email and password to log in.</li>
+        <li><code class="event">REGISTER</code>: Dispatched with user details to create an account.</li>
+        <li><code class="event">FORGOT_PASSWORD</code>: Dispatched with an email to initiate password reset.</li>
+        <li><code class="event">VERIFY_OTP</code>: Dispatched with an OTP to verify the user's identity.</li>
+        <li><code class="event">RESET_PASSWORD</code>: Dispatched with a new password to finalize the reset.</li>
+        <li><code class="event">LOGOUT</code>: Dispatched to log the user out.</li>
+        <li><code class="event">CANCEL</code>: Dispatched to cancel an in-progress operation.</li>
+        <li><code class="event">GO_TO_REGISTER</code>: Navigates to the registration form.</li>
+        <li><code class="event">GO_TO_LOGIN</code>: Navigates to the login form.</li>
+        <li><code class="event">GO_TO_FORGOT_PASSWORD</code>: Navigates to the forgot password form.</li>
+    </ul>
+
+</body>
+</html>

@@ -1,0 +1,586 @@
+/**
+ * Path: src/features/auth/repositories/AuthRepository.test.ts
+ * Version: 0.2.0
+ */
+
+import axios from "axios";
+import { AuthRepository } from "./AuthRepository";
+import { IStorage } from "../types";
+
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+const mockStorage: IStorage = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+};
+
+// Helpers to generate test JWTs
+const createMockJwt = (expInSeconds?: number) => {
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payloadObj = expInSeconds
+    ? { exp: expInSeconds, sub: "123" }
+    : { sub: "123" };
+  const payload = btoa(JSON.stringify(payloadObj));
+  return `${header}.${payload}.signature`;
+};
+
+describe("AuthRepository", () => {
+  let repository: AuthRepository;
+  let mockAxiosInstance: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    mockAxiosInstance = jest.fn();
+    mockAxiosInstance.post = jest.fn();
+    mockAxiosInstance.get = jest.fn();
+    mockAxiosInstance.interceptors = { response: { use: jest.fn() } };
+
+    mockedAxios.create.mockReturnValue(mockAxiosInstance);
+    mockedAxios.isAxiosError.mockReturnValue(true);
+
+    repository = new AuthRepository(mockStorage, "https://test.api.com");
+  });
+
+  it("should create an axios instance with the provided baseURL", () => {
+    expect(mockedAxios.create).toHaveBeenCalledWith({
+      baseURL: "https://test.api.com",
+      headers: { "Content-Type": "application/json" },
+      timeout: 10000,
+    });
+  });
+
+  it("should fall back to the default baseURL when none is provided", () => {
+    mockedAxios.create.mockClear();
+    new AuthRepository(mockStorage);
+    expect(mockedAxios.create).toHaveBeenLastCalledWith({
+      baseURL: "https://api.astra.example.com",
+      headers: { "Content-Type": "application/json" },
+      timeout: 10000,
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe("Login & Register", () => {
+    it("should call API, save session, and return tokens on login success", async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: "abc-123", refreshToken: "ref-456" },
+        },
+      });
+      const result = await repository.login({
+        email: "test@test.com",
+        password: "password",
+      });
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/login", {
+        email: "test@test.com",
+        password: "password",
+      });
+      expect(mockStorage.setItem).toHaveBeenCalledWith(
+        "user_session_token",
+        JSON.stringify({ accessToken: "abc-123", refreshToken: "ref-456" })
+      );
+      expect(result).toEqual({
+        accessToken: "abc-123",
+        refreshToken: "ref-456",
+      });
+    });
+
+    it("should register user via OTP-init endpoint without touching storage", async () => {
+      mockAxiosInstance.post.mockResolvedValue({ data: undefined });
+
+      await repository.register({
+        email: "new@test.com",
+        password: "secret",
+      });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/register", {
+        email: "new@test.com",
+        password: "secret",
+      });
+      expect(mockStorage.setItem).not.toHaveBeenCalled();
+    });
+
+    it("should surface server errors when login fails", async () => {
+      const axiosError = {
+        response: { data: { message: "Invalid credentials" } },
+        message: "fallback",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.login({ email: "bad@test.com", password: "wrong" })
+      ).rejects.toThrow("Invalid credentials");
+    });
+
+    it("should surface fallback message when register fails without server message", async () => {
+      const axiosError = {
+        response: { data: "no-object" },
+        message: "Cannot register",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.register({ email: "bad@test.com", password: "pass" })
+      ).rejects.toThrow("Cannot register");
+    });
+
+    it("should throw network error message when no response payload exists", async () => {
+      const axiosError = {
+        message: "Network down",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.login({ email: "offline@test.com", password: "pass" })
+      ).rejects.toThrow("Network down");
+    });
+
+    it("should throw a generic error if error has no message", async () => {
+      const error = {};
+      mockAxiosInstance.post.mockRejectedValue(error);
+
+      await expect(
+        repository.login({ email: "test@test.com", password: "password" })
+      ).rejects.toThrow("An unexpected error occurred");
+    });
+  });
+
+  describe("Check Session (JWT Logic)", () => {
+    const serializeSession = (token: string) =>
+      JSON.stringify({ accessToken: token });
+
+    it("should return null if no token exists", async () => {
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(null);
+      const result = await repository.checkSession();
+      expect(result).toBeNull();
+      expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+    });
+
+    it("should skip API and LOGOUT if token is locally expired", async () => {
+      const pastTime = Math.floor(Date.now() / 1000) - 3600;
+      const expiredToken = createMockJwt(pastTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        serializeSession(expiredToken)
+      );
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+      expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+    });
+
+    it("should proceed to API if token is locally valid", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        serializeSession(validToken)
+      );
+
+      const mockProfile = { id: "1", email: "me@test.com" };
+      mockAxiosInstance.get.mockResolvedValue({ data: mockProfile });
+
+      const result = await repository.checkSession();
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${validToken}` },
+      });
+      expect(result).toEqual({
+        accessToken: validToken,
+        profile: mockProfile,
+      });
+    });
+
+    it("should drop non-string refresh tokens when reading session", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ accessToken: validToken, refreshToken: 12345 })
+      );
+
+      const mockProfile = { id: "1", email: "me@test.com" };
+      mockAxiosInstance.get.mockResolvedValue({ data: mockProfile });
+
+      const result = await repository.checkSession();
+
+      expect(result).toEqual({
+        accessToken: validToken,
+        refreshToken: undefined,
+        profile: mockProfile,
+      });
+    });
+
+    it("should keep refresh token when stored session includes string value", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: validToken,
+          refreshToken: "refresh-123",
+        })
+      );
+
+      const mockProfile = { id: "1", email: "me@test.com" };
+      mockAxiosInstance.get.mockResolvedValue({ data: mockProfile });
+
+      const result = await repository.checkSession();
+
+      expect(result).toEqual({
+        accessToken: validToken,
+        refreshToken: "refresh-123",
+        profile: mockProfile,
+      });
+    });
+
+    it("should LOGOUT if token is locally valid but server rejects it (401)", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        serializeSession(validToken)
+      );
+      mockAxiosInstance.get.mockRejectedValue({ response: { status: 401 } });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockAxiosInstance.get).toHaveBeenCalled();
+      expect(mockStorage.removeItem).toHaveBeenCalled();
+    });
+
+    it("should return null without logout when server responds with non-401 error", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        serializeSession(validToken)
+      );
+      mockAxiosInstance.get.mockRejectedValue({ response: { status: 500 } });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it("should handle network errors without response object", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        serializeSession(validToken)
+      );
+      mockAxiosInstance.get.mockRejectedValue({});
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it("should handle legacy plain string tokens gracefully", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(validToken);
+      mockAxiosInstance.get.mockResolvedValue({ data: { id: "1", email: "a" } });
+
+      const result = await repository.checkSession();
+      expect(result?.accessToken).toBe(validToken);
+    });
+
+    it("should handle malformed tokens gracefully (treat as invalid)", async () => {
+      (mockStorage.getItem as jest.Mock).mockResolvedValue("not.a.jwt");
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalled();
+      expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+    });
+
+    it("should return null when stored JSON lacks accessToken", async () => {
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ refreshToken: "abc" })
+      );
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Request Password Reset", () => {
+    it("should call OTP request endpoint", async () => {
+      mockAxiosInstance.post.mockResolvedValue(undefined);
+
+      await repository.requestPasswordReset({ email: "reset@test.com" });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/otp/request",
+        { email: "reset@test.com" }
+      );
+    });
+
+    it("should throw when OTP request fails", async () => {
+      const axiosError = {
+        response: { data: { message: "Email missing" } },
+        message: "fallback",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.requestPasswordReset({ email: "missing@test.com" })
+      ).rejects.toThrow("Email missing");
+    });
+  });
+
+  describe("Verify OTP and Reset Password", () => {
+    it("should call verify-otp endpoint and return action token", async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { actionToken: "action-token-123" },
+        },
+      });
+
+      const token = await repository.verifyOtp({
+        email: "test@test.com",
+        otp: "123456",
+      });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/otp/verify", {
+        email: "test@test.com",
+        otp: "123456",
+      });
+      expect(token).toBe("action-token-123");
+    });
+
+    it("should throw when verify-otp fails", async () => {
+      const axiosError = {
+        response: { data: { message: "Invalid OTP" } },
+        message: "fallback",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.verifyOtp({ email: "test@test.com", otp: "123456" })
+      ).rejects.toThrow("Invalid OTP");
+    });
+
+    it("should call password reset completion endpoint", async () => {
+      mockAxiosInstance.post.mockResolvedValue(undefined);
+
+      await repository.completePasswordReset({
+        actionToken: "action-token-123",
+        newPassword: "new-password",
+      });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/password/reset/complete",
+        {
+          actionToken: "action-token-123",
+          newPassword: "new-password",
+        }
+      );
+      expect(mockStorage.setItem).not.toHaveBeenCalled();
+    });
+
+    it("should throw when password reset completion fails", async () => {
+      const axiosError = {
+        response: { data: { message: "Invalid action token" } },
+        message: "fallback",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.completePasswordReset({
+          actionToken: "action-token-123",
+          newPassword: "new-password",
+        })
+      ).rejects.toThrow("Invalid action token");
+    });
+  });
+
+  describe("Complete Registration", () => {
+    it("should call complete registration endpoint", async () => {
+      mockAxiosInstance.post.mockResolvedValue(undefined);
+
+      await repository.completeRegistration({
+        actionToken: "token-1",
+        newPassword: "Secret123!",
+      });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/register/complete",
+        {
+          actionToken: "token-1",
+          newPassword: "Secret123!",
+        }
+      );
+    });
+
+    it("should throw when completion fails", async () => {
+      const axiosError = {
+        response: { data: { message: "Token expired" } },
+        message: "fallback",
+      };
+      mockAxiosInstance.post.mockRejectedValue(axiosError);
+
+      await expect(
+        repository.completeRegistration({
+          actionToken: "token-1",
+          newPassword: "Secret123!",
+        })
+      ).rejects.toThrow("Token expired");
+    });
+  });
+
+
+  // ... include remaining existing tests (Retry logic, Logout, etc.) ...
+  describe("Logout", () => {
+    it("should remove token from storage", async () => {
+      await repository.logout();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+  });
+
+  describe("Retry Logic", () => {
+    // ... Keep existing retry logic tests ...
+    it("should retry on 503", async () => {
+      const error503 = {
+        config: { url: "/test", method: "get" },
+        response: { status: 503 },
+      };
+      mockAxiosInstance.mockResolvedValue({ data: "success" });
+      const calls = mockAxiosInstance.interceptors.response.use.mock.calls[0];
+      const errorHandler = calls[1];
+
+      const retryPromise = errorHandler(error503);
+      jest.runAllTimers();
+      await retryPromise;
+      expect(error503.config).toHaveProperty("_retryCount", 1);
+    });
+  });
+
+  describe("Response Interceptor", () => {
+    it("should return response as-is for success handler", () => {
+      const [successHandler] =
+        mockAxiosInstance.interceptors.response.use.mock.calls[0];
+      const response = { data: 123 };
+      expect(successHandler(response)).toBe(response);
+    });
+
+    it("should not retry when error is non-retryable", async () => {
+      const [, errorHandler] =
+        mockAxiosInstance.interceptors.response.use.mock.calls[0];
+      const error = {
+        config: { _retryCount: 3 },
+        response: { status: 400 },
+      };
+
+      await expect(errorHandler(error)).rejects.toBe(error);
+      expect(mockAxiosInstance).not.toHaveBeenCalled();
+    });
+
+    it("should reject immediately when config is missing", async () => {
+      const [, errorHandler] =
+        mockAxiosInstance.interceptors.response.use.mock.calls[0];
+      const error = {};
+
+      await expect(errorHandler(error)).rejects.toBe(error);
+    });
+  });
+
+  describe("isTokenExpired", () => {
+    it("returns false when token lacks exp so server can decide", () => {
+      const tokenWithoutExp = createMockJwt();
+      expect((repository as any).isTokenExpired(tokenWithoutExp)).toBe(false);
+    });
+
+    it("uses Buffer fallback when atob is unavailable", () => {
+      const globalAny = global as any;
+      const originalAtob = globalAny.atob;
+      delete globalAny.atob;
+
+      const futureTime = Math.floor(Date.now() / 1000) + 120;
+      const token = createMockJwt(futureTime);
+
+      expect((repository as any).isTokenExpired(token)).toBe(false);
+
+      globalAny.atob = originalAtob;
+    });
+
+    it("returns true when payload cannot be parsed", () => {
+      const badPayload = Buffer.from("not-json").toString("base64");
+      const token = `header.${badPayload}.signature`;
+      expect((repository as any).isTokenExpired(token)).toBe(true);
+    });
+
+    it("returns false when neither atob nor Buffer are available", () => {
+      const globalAny = global as any;
+      const originalAtob = globalAny.atob;
+      const originalBuffer = globalAny.Buffer;
+
+      globalAny.atob = undefined;
+      globalAny.Buffer = undefined;
+
+      const futureTime = Math.floor(Date.now() / 1000) + 60;
+      const token = createMockJwt(futureTime);
+
+      expect((repository as any).isTokenExpired(token)).toBe(false);
+
+      globalAny.atob = originalAtob;
+      globalAny.Buffer = originalBuffer;
+    });
+
+    it("returns true when token is missing required segments", () => {
+      expect((repository as any).isTokenExpired("invalid-token")).toBe(true);
+    });
+  });
+
+  describe("handleError", () => {
+    it("prefers server-provided error messages", () => {
+      const axiosError = {
+        response: { data: { message: "Server exploded" } },
+        message: "local",
+      };
+      expect(() =>
+        (repository as any).handleError(axiosError)
+      ).toThrow("Server exploded");
+    });
+
+    it("falls back to generic message when not an Axios error", () => {
+      mockedAxios.isAxiosError.mockReturnValue(false);
+      expect(() =>
+        (repository as any).handleError(new Error("boom"))
+      ).toThrow("An unexpected error occurred");
+      mockedAxios.isAxiosError.mockReturnValue(true);
+    });
+
+    it("falls back to default message inside axios branch when no message exists", () => {
+      const axiosError = {
+        response: { data: {} },
+        message: "",
+      };
+      expect(() =>
+        (repository as any).handleError(axiosError)
+      ).toThrow("An unexpected error occurred");
+    });
+  });
+});
