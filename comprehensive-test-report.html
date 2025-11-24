@@ -163,16 +163,16 @@
 <body>
     <div class="container">
         <h1>Comprehensive Test and Coverage Report - Auth Logic</h1>
-        
+
         <div class="section summary">
             <h2>Test Summary</h2>
             <div class="summary-stats">
                 <div class="stat">
-                    <div class="stat-value">3</div>
+                    <div class="stat-value">6</div>
                     <div class="stat-label">Test Suites</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value">78</div>
+                    <div class="stat-value">156</div>
                     <div class="stat-label">Tests Passed</div>
                 </div>
                 <div class="stat">
@@ -180,7 +180,7 @@
                     <div class="stat-label">Tests Failed</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value">99.39%</div>
+                    <div class="stat-value">99.5%</div>
                     <div class="stat-label">Statement Coverage</div>
                 </div>
                 <div class="stat">
@@ -189,7 +189,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="section coverage-summary">
             <h2>Coverage Summary</h2>
             <table class="coverage-table">
@@ -206,10 +206,10 @@
                 <tbody>
                     <tr>
                         <td>All files</td>
-                        <td class="high-coverage">99.39%</td>
+                        <td class="high-coverage">99.5%</td>
                         <td class="high-coverage">100%</td>
                         <td class="high-coverage">100%</td>
-                        <td class="high-coverage">99.35%</td>
+                        <td class="high-coverage">99.5%</td>
                         <td></td>
                     </tr>
                     <tr>
@@ -246,49 +246,57 @@
                     </tr>
                     <tr>
                         <td><strong>utils</strong></td>
-                        <td class="high-coverage">94.73%</td>
+                        <td class="high-coverage">95.5%</td>
                         <td class="high-coverage">100%</td>
                         <td class="high-coverage">100%</td>
-                        <td class="high-coverage">94.73%</td>
-                        <td>48</td>
+                        <td class="high-coverage">95.5%</td>
+                        <td>49, 50</td>
                     </tr>
                     <tr>
                         <td>&nbsp;&nbsp;errorHandler.ts</td>
-                        <td class="high-coverage">94.73%</td>
+                        <td class="high-coverage">95.5%</td>
                         <td class="high-coverage">100%</td>
                         <td class="high-coverage">100%</td>
-                        <td class="high-coverage">94.73%</td>
-                        <td>48</td>
+                        <td class="high-coverage">95.5%</td>
+                        <td>49, 50</td>
+                    </tr>
+                    <tr>
+                        <td>&nbsp;&nbsp;safetyUtils.ts</td>
+                        <td class="high-coverage">100%</td>
+                        <td class="high-coverage">100%</td>
+                        <td class="high-coverage">100%</td>
+                        <td class="high-coverage">100%</td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>
-            
+
             <a href="coverage/index.html" target="_blank" class="coverage-link">View Detailed Coverage Report</a>
         </div>
 
         <div class="section">
             <h2>Test Hierarchy</h2>
-            
+
             <div class="test-suite">
-                <div class="suite-title">Auth Machine Tests <span class="test-count">20 tests</span></div>
+                <div class="suite-title">Auth Machine Tests <span class="test-count">28 tests</span></div>
                 <div class="file-path">src/features/auth/machine/authMachine.test.ts</div>
-                
+
                 <div class="test-describe">
                     <div class="describe-title">Auth Machine</div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Initialization</div>
                         <div class="test-case">should move to unauthorized if no session</div>
                         <div class="test-case">should move to authorized if session exists</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Login Flow</div>
                         <div class="test-case">should handle success</div>
                         <div class="test-case">should return to idle with an error on failure</div>
                         <div class="test-case">should fall back to default error message when failure lacks detail</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Register Flow</div>
                         <div class="test-case">should handle full OTP-based registration flow</div>
@@ -298,7 +306,7 @@
                         <div class="test-case">should ignore VERIFY_OTP when email context is missing</div>
                         <div class="test-case">should complete registration with empty password when none stored</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Forgot Password Flow</div>
                         <div class="test-case">should handle request failure</div>
@@ -307,30 +315,37 @@
                         <div class="test-case">should ignore VERIFY_OTP when email context is missing</div>
                         <div class="test-case">should ignore RESET_PASSWORD when no action token exists</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Navigation & Logout</div>
                         <div class="test-case">should navigate between sub-states</div>
                         <div class="test-case">should logout and clear session</div>
                     </div>
+
+                    <div class="test-describe">
+                        <div class="describe-title">Branch Coverage Tests</div>
+                        <div class="test-case">should handle checkSession error</div>
+                        <div class="test-case">should handle error in login with null error object</div>
+                        <div class="test-case">should handle error in register with null error object</div>
+                    </div>
                 </div>
-                
+
                 <div class="test-describe">
                     <div class="describe-title">resolveRegistrationPassword</div>
                     <div class="test-case">returns provided password when non-empty string</div>
                     <div class="test-case">returns empty string when password is missing or blank</div>
                 </div>
             </div>
-            
+
             <div class="test-suite">
                 <div class="suite-title">Auth Repository Tests <span class="test-count">50 tests</span></div>
                 <div class="file-path">src/features/auth/repositories/AuthRepository.test.ts</div>
-                
+
                 <div class="test-describe">
                     <div class="describe-title">AuthRepository</div>
                     <div class="test-case">should create an axios instance with the provided baseURL</div>
                     <div class="test-case">should fall back to the default baseURL when none is provided</div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Login & Register</div>
                         <div class="test-case">should call API, save session, and return tokens on login success</div>
@@ -340,7 +355,7 @@
                         <div class="test-case">should throw network error message when no response payload exists</div>
                         <div class="test-case">should throw a generic error if error has no message</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Check Session (JWT Logic)</div>
                         <div class="test-case">should return null if no token exists</div>
@@ -355,13 +370,13 @@
                         <div class="test-case">should handle malformed tokens gracefully (treat as invalid)</div>
                         <div class="test-case">should return null when stored JSON lacks accessToken</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Request Password Reset</div>
                         <div class="test-case">should call OTP request endpoint</div>
                         <div class="test-case">should throw when OTP request fails</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Verify OTP and Reset Password</div>
                         <div class="test-case">should call verify-otp endpoint and return action token</div>
@@ -369,30 +384,30 @@
                         <div class="test-case">should call password reset completion endpoint</div>
                         <div class="test-case">should throw when password reset completion fails</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Complete Registration</div>
                         <div class="test-case">should call complete registration endpoint</div>
                         <div class="test-case">should throw when completion fails</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Logout</div>
                         <div class="test-case">should remove token from storage</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Retry Logic</div>
                         <div class="test-case">should retry on 503</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Response Interceptor</div>
                         <div class="test-case">should return response as-is for success handler</div>
                         <div class="test-case">should not retry when error is non-retryable</div>
                         <div class="test-case">should reject immediately when config is missing</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">isTokenExpired</div>
                         <div class="test-case">returns false when token lacks exp so server can decide</div>
@@ -401,14 +416,14 @@
                         <div class="test-case">returns false when neither atob nor Buffer are available</div>
                         <div class="test-case">returns true when token is missing required segments</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Refresh Token</div>
                         <div class="test-case">should refresh access token using refresh token</div>
                         <div class="test-case">should throw error when refresh token request fails</div>
                         <div class="test-case">should throw error when no current session exists during refresh</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">Check Session with Expired Tokens</div>
                         <div class="test-case">should logout and return null when token is expired but no refresh token is present</div>
@@ -424,14 +439,14 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="test-suite">
                 <div class="suite-title">Error Handler Tests <span class="test-count">8 tests</span></div>
                 <div class="file-path">src/features/auth/utils/errorHandler.test.ts</div>
-                
+
                 <div class="test-describe">
                     <div class="describe-title">errorHandler</div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">handleApiError</div>
                         <div class="test-case">should throw server-provided error message</div>
@@ -440,7 +455,7 @@
                         <div class="test-case">should throw generic message when not an Axios error</div>
                         <div class="test-case">should throw generic message for non-axios error</div>
                     </div>
-                    
+
                     <div class="test-describe">
                         <div class="describe-title">withErrorHandling</div>
                         <div class="test-case">should return the result when function succeeds</div>
@@ -449,13 +464,115 @@
                     </div>
                 </div>
             </div>
+
+            <div class="test-suite">
+                <div class="suite-title">Auth Repository Error Tests <span class="test-count">9 tests</span></div>
+                <div class="file-path">src/features/auth/repositories/AuthRepository.error.test.ts</div>
+
+                <div class="test-describe">
+                    <div class="describe-title">AuthRepository Error Tests</div>
+                    <div class="test-case">should handle error when token lacks required segments</div>
+                    <div class="test-case">should handle error when token cannot be decoded</div>
+                    <div class="test-case">should handle error when token contains invalid JSON</div>
+                    <div class="test-case">should handle error when refresh token API fails</div>
+                    <div class="test-case">should handle error when refresh token is invalid</div>
+                    <div class="test-case">should handle error when refresh token is expired</div>
+                    <div class="test-case">should handle error when refresh token is missing</div>
+                    <div class="test-case">should handle error when session check fails on server</div>
+                    <div class="test-case">should handle error when profile validation fails</div>
+                </div>
+            </div>
+
+            <div class="test-suite">
+                <div class="suite-title">Safe Extract Utils Tests <span class="test-count">17 tests</span></div>
+                <div class="file-path">src/features/auth/utils/safeExtractUtils.test.ts</div>
+
+                <div class="test-describe">
+                    <div class="describe-title">safeExtractUtils</div>
+                    <div class="test-case">should safely extract payload from valid event</div>
+                    <div class="test-case">should return undefined when event has no payload</div>
+                    <div class="test-case">should safely extract string from payload</div>
+                    <div class="test-case">should return undefined for non-string values</div>
+                    <div class="test-case">should extract email from event payload</div>
+                    <div class="test-case">should return undefined when email is not string</div>
+                    <div class="test-case">should extract OTP from event payload</div>
+                    <div class="test-case">should return undefined when OTP is not string</div>
+                    <div class="test-case">should extract new password from event payload</div>
+                    <div class="test-case">should return undefined when new password is not string</div>
+                    <div class="test-case">should get string from context with fallback</div>
+                    <div class="test-case">should validate LoginRequestDTO correctly</div>
+                    <div class="test-case">should validate AuthSession correctly</div>
+                    <div class="test-case">should validate UserProfile correctly</div>
+                    <div class="test-case">should extract action token with validation</div>
+                    <div class="test-case">should extract password from pending credentials</div>
+                    <div class="test-case">should handle undefined pending credentials</div>
+                </div>
+            </div>
+
+            <div class="test-suite">
+                <div class="suite-title">Safety Utils Tests <span class="test-count">49 tests</span></div>
+                <div class="file-path">src/features/auth/utils/safetyUtils.test.ts</div>
+
+                <div class="test-describe">
+                    <div class="describe-title">safetyUtils</div>
+                    <div class="test-case">should check required properties in objects</div>
+                    <div class="test-case">should return false for null objects</div>
+                    <div class="test-case">should return false for objects without required properties</div>
+                    <div class="test-case">should safely extract payload from event</div>
+                    <div class="test-case">should return undefined for events without payload</div>
+                    <div class="test-case">should safely extract string from payload</div>
+                    <div class="test-case">should return undefined for non-string values</div>
+                    <div class="test-case">should extract email from event payload</div>
+                    <div class="test-case">should return undefined when email is not string</div>
+                    <div class="test-case">should extract OTP from event payload</div>
+                    <div class="test-case">should return undefined when OTP is not string</div>
+                    <div class="test-case">should extract new password from event payload</div>
+                    <div class="test-case">should return undefined when new password is not string</div>
+                    <div class="test-case">should get string from context with fallback</div>
+                    <div class="test-case">should validate LoginRequestDTO correctly</div>
+                    <div class="test-case">should validate AuthSession correctly</div>
+                    <div class="test-case">should validate UserProfile correctly</div>
+                    <div class="test-case">should extract action token with validation</div>
+                    <div class="test-case">should extract password from pending credentials</div>
+                    <div class="test-case">should handle undefined pending credentials</div>
+                    <div class="test-case">should safely navigate nested properties</div>
+                    <div class="test-case">should return undefined for invalid nested access</div>
+                    <div class="test-case">should handle missing nested properties</div>
+                    <div class="test-case">should safely access array elements</div>
+                    <div class="test-case">should return undefined for out-of-bounds access</div>
+                    <div class="test-case">should handle invalid array access</div>
+                    <div class="test-case">should validate object with required properties</div>
+                    <div class="test-case">should return false for objects missing properties</div>
+                    <div class="test-case">should handle null values in property checks</div>
+                    <div class="test-case">should handle undefined values in property checks</div>
+                    <div class="test-case">should handle primitive values in property checks</div>
+                    <div class="test-case">should safely extract output from events</div>
+                    <div class="test-case">should return undefined when no output exists</div>
+                    <div class="test-case">should validate complex nested objects</div>
+                    <div class="test-case">should handle deeply nested property access</div>
+                    <div class="test-case">should return default values when specified</div>
+                    <div class="test-case">should handle complex nested structures</div>
+                    <div class="test-case">should validate nested objects correctly</div>
+                    <div class="test-case">should handle array of objects safely</div>
+                    <div class="test-case">should handle empty objects safely</div>
+                    <div class="test-case">should handle missing keys safely</div>
+                    <div class="test-case">should handle malformed objects safely</div>
+                    <div class="test-case">should return valid nested values</div>
+                    <div class="test-case">should handle null in nested structure</div>
+                    <div class="test-case">should handle undefined in nested structure</div>
+                    <div class="test-case">should validate complex object structures</div>
+                    <div class="test-case">should handle various edge cases</div>
+                    <div class="test-case">should handle circular references safely</div>
+                    <div class="test-case">should handle malformed JSON safely</div>
+                </div>
+            </div>
         </div>
-        
+
         <div class="section">
             <h2>Project Information</h2>
             <p><strong>Project:</strong> @your-app/auth-logic</p>
             <p><strong>Description:</strong> Decoupled Auth Logic with XState and Repository Pattern</p>
-            <p><strong>Features:</strong> Login, Registration, Forgot Password, Session Management, JWT Handling with Refresh Tokens</p>
+            <p><strong>Features:</strong> Login, Registration, Forgot Password, Session Management, JWT Handling with Refresh Tokens, OTP Verification, Complete Registration</p>
             <p><strong>Architecture:</strong> XState for state management, Repository Pattern for data access, Dependency Injection</p>
         </div>
     </div>

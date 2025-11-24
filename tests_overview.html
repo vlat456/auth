@@ -61,7 +61,7 @@
     <div class="container">
         <h2>Architectural Approach to Testing</h2>
         <p>
-            The project's testing strategy mirrors its decoupled architecture, which separates state management (XState) from side effects (API calls). This results in two primary layers of tests:
+            The project's testing strategy mirrors its decoupled architecture, which separates state management (XState) from side effects (API calls). This results in multiple layers of tests:
         </p>
         <ul>
             <li>
@@ -69,6 +69,18 @@
             </li>
             <li>
                 <strong>Data & API Repository (<span class="test-file">AuthRepository.test.ts</span>):</strong> Focuses on testing the implementation details of data fetching, API communication, session management (JWTs), and error handling.
+            </li>
+            <li>
+                <strong>Repository Error Handling (<span class="test-file">AuthRepository.error.test.ts</span>):</strong> Focuses on testing edge cases and error scenarios in the repository layer.
+            </li>
+            <li>
+                <strong>Error Handling Utilities (<span class="test-file">errorHandler.test.ts</span>):</strong> Focuses on testing the error handling functions used across the auth system.
+            </li>
+            <li>
+                <strong>Utility Functions (<span class="test-file">safeExtractUtils.test.ts</span>):</strong> Tests for safe data extraction utilities.
+            </li>
+            <li>
+                <strong>Safety Utilities (<span class="test-file">safetyUtils.test.ts</span>):</strong> Tests for various safety utility functions used throughout the auth system.
             </li>
         </ul>
         <p>
@@ -81,7 +93,7 @@
         <p>
             These tests validate the core application logic by simulating user interactions and asserting state transitions. The <code>AuthRepository</code> is mocked, allowing the tests to focus solely on the machine's behavior.
         </p>
-        
+
         <h3>Test Hierarchy:</h3>
         <ul>
             <li>
@@ -103,34 +115,35 @@
                             <p>Tests the complete login sequence.</p>
                             <ul>
                                 <li><code>test("should handle success")</code>: User logs in, machine transitions to <code>authorized</code>.</li>
-                                <li><code>test("should handle failure and retry")</code>: API fails, machine enters a failure state, and a <code>RETRY</code> event returns it to an idle state.</li>
+                                <li><code>test("should return to idle with an error on failure")</code>: API fails, machine enters a failure state with an error message.</li>
+                                <li><code>test("should fall back to default error message when failure lacks detail")</code>: Handles failures without detailed messages.</li>
                             </ul>
                         </div>
                     </li>
                     <li>
                         <div class="flow">
                             <strong>Register Flow:</strong>
-                            <p>Tests the user registration sequence.</p>
+                            <p>Tests the user registration sequence with OTP verification.</p>
                             <ul>
-                                <li><code>test("should handle success")</code>: User registers, machine transitions to <code>authorized</code>.</li>
-                                <li><code>test("should handle failure")</code>: API fails, machine enters a failure state with an error message.</li>
+                                <li><code>test("should handle full OTP-based registration flow")</code>: Complete flow from form submission to login.</li>
+                                <li><code>test("should return to form with an error when register fails")</code>: Handles registration failures.</li>
+                                <li><code>test("should show default error when register rejects without payload")</code>: Handles empty error responses.</li>
+                                <li><code>test("should surface OTP errors")</code>: Properly handles OTP verification failures.</li>
+                                <li><code>test("should ignore VERIFY_OTP when email context is missing")</code>: Guards against invalid transitions.</li>
+                                <li><code>test("should complete registration with empty password when none stored")</code>: Handles missing password scenarios.</li>
                             </ul>
                         </div>
                     </li>
                     <li>
                         <div class="flow">
                             <strong>Forgot Password Flow:</strong>
-                            <p>Tests the entire multi-step password reset process, which is a key feature.</p>
+                            <p>Tests the entire multi-step password reset process with OTP verification.</p>
                             <ul>
-                                <li><code>test("should handle the full forgot password flow")</code>: A comprehensive test that simulates the following sequence:
-                                    <ol>
-                                        <li>Submit email for password reset.</li>
-                                        <li>Verify the one-time password (OTP).</li>
-                                        <li>Submit the new password.</li>
-                                        <li>Transition to the <code>authorized</code> state upon success.</li>
-                                    </ol>
-                                </li>
-                                <li><code>test("should handle failure")</code>: Tests what happens if the initial email submission fails.</li>
+                                <li><code>test("should handle the full forgot password flow")</code>: Complete multi-step flow from email submission to password reset.</li>
+                                <li><code>test("should handle request failure")</code>: Handles initial email submission failures.</li>
+                                <li><code>test("should handle OTP verification failure")</code>: Handles OTP validation failures.</li>
+                                <li><code>test("should ignore VERIFY_OTP when email context is missing")</code>: Prevents invalid OTP transitions.</li>
+                                <li><code>test("should ignore RESET_PASSWORD when no action token exists")</code>: Prevents invalid password reset transitions.</li>
                             </ul>
                         </div>
                     </li>
@@ -140,10 +153,28 @@
                             <p>Ensures smooth transitions between UI states and a clean logout.</p>
                             <ul>
                                 <li><code>test("should navigate between sub-states")</code>: Checks navigation between login and register forms.</li>
-                                <li><code>test("should logout and clear user")</code>: Verifies that a <code>LOGOUT</code> event clears user data and returns to the <code>unauthorized</code> state.</li>
+                                <li><code>test("should logout and clear session")</code>: Verifies that a <code>LOGOUT</code> event clears user data and returns to the <code>unauthorized</code> state.</li>
                             </ul>
                         </div>
                     </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Branch Coverage Tests:</strong>
+                            <p>Additional tests to ensure full branch coverage.</p>
+                            <ul>
+                                <li><code>test("should handle checkSession error")</code>: Handles session check failures.</li>
+                                <li><code>test("should handle error in login with null error object")</code>: Handles null error objects.</li>
+                                <li><code>test("should handle error in register with null error object")</code>: Handles null error objects in registration.</li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+            <li>
+                <strong><code>describe("resolveRegistrationPassword")</code></strong>
+                <ul>
+                    <li><code>test("returns provided password when non-empty string")</code>: Returns valid password string.</li>
+                    <li><code>test("returns empty string when password is missing or blank")</code>: Handles missing/empty passwords.</li>
                 </ul>
             </li>
         </ul>
@@ -165,8 +196,12 @@
                             <strong>Login & Register:</strong>
                             <p>Verifies that API calls are made correctly and session tokens are stored.</p>
                             <ul>
-                                <li><code>test("should call API, save token, and return user on success")</code></li>
+                                <li><code>test("should call API, save session, and return tokens on login success")</code></li>
+                                <li><code>test("should register user via OTP-init endpoint without touching storage")</code></li>
                                 <li><code>test("should surface server errors when login fails")</code></li>
+                                <li><code>test("should surface fallback message when register fails without server message")</code></li>
+                                <li><code>test("should throw network error message when no response payload exists")</code></li>
+                                <li><code>test("should throw a generic error if error has no message")</code></li>
                             </ul>
                         </div>
                     </li>
@@ -178,29 +213,157 @@
                                 <li><code>test("should return null if no token exists")</code></li>
                                 <li><code>test("should skip API and LOGOUT if token is LOCALLY expired")</code>: Crucially, this prevents unnecessary network requests for expired tokens.</li>
                                 <li><code>test("should proceed to API if token is LOCALLY valid")</code></li>
+                                <li><code>test("should drop non-string refresh tokens when reading session")</code></li>
+                                <li><code>test("should keep refresh token when stored session includes string value")</code></li>
                                 <li><code>test("should LOGOUT if token is locally valid but SERVER rejects it (401)")</code>: Handles cases where a session is revoked server-side.</li>
-                                <li><code>test("should handle malformed tokens gracefully")</code></li>
+                                <li><code>test("should return null without logout when server responds with non-401 error")</code></li>
+                                <li><code>test("should handle network errors without response object")</code></li>
+                                <li><code>test("should handle legacy plain string tokens gracefully")</code></li>
+                                <li><code>test("should handle malformed tokens gracefully (treat as invalid)")</code></li>
+                                <li><code>test("should return null when stored JSON lacks accessToken")</code></li>
                             </ul>
                         </div>
                     </li>
                     <li>
                         <div class="flow">
-                            <strong>Password Reset (Forgot Password, Verify OTP, etc.):</strong>
-                            <p>Tests each discrete API call in the password reset flow.</p>
+                            <strong>Request Password Reset:</strong>
+                            <p>Tests the initial OTP request functionality.</p>
                             <ul>
-                                <li><code>test("should call forgot-password endpoint")</code></li>
-                                <li><code>test("should call verify-otp endpoint")</code></li>
-                                <li><code>test("should call reset-password endpoint and return user on success")</code></li>
+                                <li><code>test("should call OTP request endpoint")</code></li>
+                                <li><code>test("should throw when OTP request fails")</code></li>
                             </ul>
                         </div>
                     </li>
                     <li>
                         <div class="flow">
-                            <strong>Error Handling & Resilience:</strong>
-                            <p>Ensures the application is resilient to network issues.</p>
+                            <strong>Verify OTP and Reset Password:</strong>
+                            <p>Tests OTP verification and password reset completion.</p>
                             <ul>
-                                <li><code>describe("Retry Logic")</code>: Tests the automatic retry mechanism for transient server errors (e.g., HTTP 503).</li>
-                                <li><code>describe("handleError")</code>: Verifies that the repository extracts and throws the correct error messages from API responses.</li>
+                                <li><code>test("should call verify-otp endpoint and return action token")</code></li>
+                                <li><code>test("should throw when verify-otp fails")</code></li>
+                                <li><code>test("should call password reset completion endpoint")</code></li>
+                                <li><code>test("should throw when password reset completion fails")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Complete Registration:</strong>
+                            <p>Tests the final registration step with action token.</p>
+                            <ul>
+                                <li><code>test("should call complete registration endpoint")</code></li>
+                                <li><code>test("should throw when completion fails")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Logout:</strong>
+                            <p>Tests session cleanup.</p>
+                            <ul>
+                                <li><code>test("should remove token from storage")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Retry Logic:</strong>
+                            <p>Tests automatic retry mechanism for transient server errors.</p>
+                            <ul>
+                                <li><code>test("should retry on 503")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Response Interceptor:</strong>
+                            <p>Tests the response handling for the axios client.</p>
+                            <ul>
+                                <li><code>test("should return response as-is for success handler")</code></li>
+                                <li><code>test("should not retry when error is non-retryable")</code></li>
+                                <li><code>test("should reject immediately when config is missing")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>isTokenExpired:</strong>
+                            <p>Tests the JWT expiration detection.</p>
+                            <ul>
+                                <li><code>test("returns false when token lacks exp so server can decide")</code></li>
+                                <li><code>test("uses Buffer fallback when atob is unavailable")</code></li>
+                                <li><code>test("returns true when payload cannot be parsed")</code></li>
+                                <li><code>test("returns false when neither atob nor Buffer are available")</code></li>
+                                <li><code>test("returns true when token is missing required segments")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Refresh Token:</strong>
+                            <p>Tests token refresh functionality.</p>
+                            <ul>
+                                <li><code>test("should refresh access token using refresh token")</code></li>
+                                <li><code>test("should throw error when refresh token request fails")</code></li>
+                                <li><code>test("should throw error when no current session exists during refresh")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>Check Session with Expired Tokens:</strong>
+                            <p>Comprehensive tests for session handling with expired tokens.</p>
+                            <ul>
+                                <li><code>test("should logout and return null when token is expired but no refresh token is present")</code></li>
+                                <li><code>test("should attempt refresh when 401 occurs and refresh token is available")</code></li>
+                                <li><code>test("should logout when 401 occurs and refresh token is not available")</code></li>
+                                <li><code>test("should logout when token is expired and refresh attempt fails")</code></li>
+                                <li><code>test("should logout when 401 occurs and refresh attempt fails")</code></li>
+                                <li><code>test("should return null without logout when non-401 error occurs")</code></li>
+                                <li><code>test("should return null without logout when non-axios error occurs")</code></li>
+                                <li><code>test("should logout and return null when 401 occurs and no refresh token is available")</code></li>
+                                <li><code>test("should return null without logout when 401 occurs and no session exists for refresh")</code></li>
+                                <li><code>test("should cover final return path when 401 error has response and no refresh token")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>III. Error Handler Tests: <code>errorHandler.test.ts</code></h2>
+        <p>
+            These tests validate the error handling utilities used across the auth system to ensure consistent error processing.
+        </p>
+
+        <h3>Test Hierarchy:</h3>
+        <ul>
+            <li>
+                <strong><code>describe("errorHandler")</code></strong>
+                <ul>
+                    <li>
+                        <div class="flow">
+                            <strong>handleApiError:</strong>
+                            <p>Tests for the API error handling function.</p>
+                            <ul>
+                                <li><code>test("should throw server-provided error message")</code></li>
+                                <li><code>test("should fall back to axios error message when no server message")</code></li>
+                                <li><code>test("should throw generic message when no meaningful message exists")</code></li>
+                                <li><code>test("should throw generic message when not an Axios error")</code></li>
+                                <li><code>test("should throw generic message for non-axios error")</code></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="flow">
+                            <strong>withErrorHandling:</strong>
+                            <p>Tests for the error handling wrapper function.</p>
+                            <ul>
+                                <li><code>test("should return the result when function succeeds")</code></li>
+                                <li><code>test("should handle errors from async functions")</code></li>
+                                <li><code>test("should handle errors from sync functions")</code></li>
                             </ul>
                         </div>
                     </li>

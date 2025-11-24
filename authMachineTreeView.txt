@@ -1,6 +1,7 @@
 Auth State Machine Tree View:
 
 - checkingSession
+  - invoke: checkSessionParams
   - onDone:
     - (guard: session exists) -> authorized
     - (no session) -> unauthorized
@@ -20,57 +21,67 @@ Auth State Machine Tree View:
         - submitting
           - on: CANCEL -> idle
           - invoke: loginUser
-          - onDone: -> #auth.authorized (actions: setUser)
-          - onError: -> failure (actions: setError)
-        - failure
-          - on:
-            - RETRY: -> idle (actions: clearError)
-            - LOGIN: -> submitting
+          - onDone: -> #auth.authorized (actions: setSession, clearPendingCredentials)
+          - onError: -> idle (actions: setError)
     - register
-      - initial: idle
+      - initial: form
       - on:
-        - GO_TO_LOGIN: -> login
+        - GO_TO_LOGIN: -> login (actions: clearRegistrationContext, clearError)
       - states:
-        - idle
-          - on: REGISTER -> submitting
+        - form
+          - on: REGISTER -> submitting (actions: clearError, setPendingCredentials, setEmailFromPayload)
         - submitting
-          - on: CANCEL -> idle
+          - on: CANCEL -> form (actions: clearRegistrationContext)
           - invoke: registerUser
-          - onDone: -> #auth.authorized (actions: setUser)
-          - onError: -> failure (actions: setError)
-        - failure
+          - onDone: -> verifyOtp
+          - onError: -> form (actions: setError)
+        - verifyOtp
           - on:
-            - RETRY: -> idle (actions: clearError)
-            - REGISTER: -> submitting
+            - VERIFY_OTP: -> verifyingOtp (guard: email exists)
+            - CANCEL: -> form (actions: clearRegistrationContext)
+        - verifyingOtp
+          - invoke: verifyOtp
+          - onDone: -> completingRegistration (actions: setRegistrationActionToken)
+          - onError: -> verifyOtp (actions: setError)
+        - completingRegistration
+          - invoke: completeRegistration
+          - onDone: -> loggingIn
+          - onError: -> verifyOtp (actions: setError)
+        - loggingIn
+          - invoke: loginUser
+          - onDone: -> #auth.authorized (actions: setSession, clearRegistrationContext, clearPendingCredentials)
+          - onError: -> #auth.unauthorized.login (actions: setError, clearRegistrationContext, clearPendingCredentials)
     - forgotPassword
       - initial: idle
       - on:
-        - GO_TO_LOGIN: -> login (actions: clearForgotPasswordContext)
+        - GO_TO_LOGIN: -> login (actions: clearForgotPasswordContext, clearError)
       - states:
         - idle
-          - on: FORGOT_PASSWORD -> submitting (actions: setEmail)
+          - on: FORGOT_PASSWORD -> submitting (actions: setEmailFromPayload, clearError)
         - submitting
           - on: CANCEL -> idle
           - invoke: requestPasswordReset
           - onDone: -> verifyOtp
-          - onError: -> failure (actions: setError)
+          - onError: -> idle (actions: setError)
         - verifyOtp
           - on:
-            - VERIFY_OTP: -> verifyingOtp (actions: setOtp, guard: email exists)
+            - VERIFY_OTP: -> verifyingOtp (guard: email exists)
+            - CANCEL: -> idle (actions: clearForgotPasswordContext)
         - verifyingOtp
           - invoke: verifyOtp
-          - onDone: -> resetPassword
-          - onError: -> failure (actions: setError)
+          - onDone: -> resetPassword (actions: setResetActionToken)
+          - onError: -> verifyOtp (actions: setError)
         - resetPassword
           - on:
-            - RESET_PASSWORD: -> resettingPassword (guard: email and otp exist)
+            - RESET_PASSWORD: -> resettingPassword (guard: action token exists, actions: setPendingCredentialsFromNewPassword)
         - resettingPassword
-          - invoke: resetPassword
-          - onDone: -> #auth.authorized (actions: setUser, clearForgotPasswordContext)
-          - onError: -> failure (actions: setError)
-        - failure
-          - on:
-            - RETRY: -> idle (actions: clearError)
+          - invoke: completePasswordReset
+          - onDone: -> loggingInAfterReset
+          - onError: -> resetPassword (actions: setError)
+        - loggingInAfterReset
+          - invoke: loginUser
+          - onDone: -> #auth.authorized (actions: setSession, clearForgotPasswordContext, clearPendingCredentials)
+          - onError: -> #auth.unauthorized.login (actions: setError, clearForgotPasswordContext, clearPendingCredentials)
 
 - authorized
   - on:
@@ -78,5 +89,5 @@ Auth State Machine Tree View:
 
 - loggingOut
   - invoke: logoutUser
-  - onDone: -> unauthorized (actions: clearUser)
+  - onDone: -> unauthorized (actions: clearSession, clearError)
   - onError: -> authorized (actions: setError)

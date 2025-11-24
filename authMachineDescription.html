@@ -32,6 +32,10 @@
             color: #555;
             font-size: 0.9em;
         }
+        .action {
+            color: #d35400;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -63,21 +67,26 @@
                 </ul>
                 <p class="note">On submission failure (e.g., invalid credentials), the machine returns to the <code>idle</code> state and an error message is populated in the context for the UI to display.</p>
             </li>
-            <li><strong><code>register</code></strong>: Handles user registration.
+            <li><strong><code>register</code></strong>: Handles user registration with OTP verification.
                 <ul>
-                    <li><code>idle</code>: Waiting for user input.</li>
+                    <li><code>form</code>: Initial form state waiting for user input.</li>
                     <li><code>submitting</code>: Sending registration details to the server.</li>
+                    <li><code>verifyOtp</code>: Waiting for user to enter OTP.</li>
+                    <li><code>verifyingOtp</code>: Sending OTP to server for verification.</li>
+                    <li><code>completingRegistration</code>: Completing registration with new password.</li>
+                    <li><code>loggingIn</code>: Logging in the newly registered user.</li>
                 </ul>
-                <p class="note">On submission failure (e.g., email already exists), the machine returns to the <code>idle</code> state and an error message is populated in the context.</p>
+                <p class="note">On submission failure (e.g., email already exists), the machine returns to the <code>form</code> state with an error message.</p>
             </li>
             <li><strong><code>forgotPassword</code></strong>: Manages the password reset flow.
                 <ul>
                     <li><code>idle</code>: Waiting for the user to enter their email.</li>
-                    <li><code>submitting</code>: Requesting a password reset from the server.</li>
+                    <li><code>submitting</code>: Requesting an OTP from the server.</li>
                     <li><code>verifyOtp</code>: Waiting for the user to enter the OTP.</li>
                     <li><code>verifyingOtp</code>: Sending the OTP to the server for verification.</li>
-                    <li><code>resetPassword</code>: Waiting for the user to enter a new password.</li>
+                    <li><code>resetPassword</code>: Waiting for the user to enter the new password.</li>
                     <li><code>resettingPassword</code>: Sending the new password to the server.</li>
+                    <li><code>loggingInAfterReset</code>: Logging in after password reset.</li>
                 </ul>
                  <p class="note">On failure at any step (e.g., email not found, invalid OTP), the machine returns to the state for that step (e.g., <code>idle</code> or <code>verifyOtp</code>) and populates an error message in the context.</p>
             </li>
@@ -86,7 +95,7 @@
 
     <div class="state">
         <h3><code>authorized</code></h3>
-        <p>The user is authenticated and has a valid session. The only available event is <code>LOGOUT</code>.</p>
+        <p>The user is authenticated and has a valid session. The available event is <code>LOGOUT</code>.</p>
     </div>
 
     <div class="state">
@@ -107,6 +116,22 @@
         <li><code class="event">GO_TO_REGISTER</code>: Navigates to the registration form.</li>
         <li><code class="event">GO_TO_LOGIN</code>: Navigates to the login form.</li>
         <li><code class="event">GO_TO_FORGOT_PASSWORD</code>: Navigates to the forgot password form.</li>
+    </ul>
+
+    <h2>Actions</h2>
+    <ul>
+        <li><code class="action">setSession</code>: Assigns the session data and clears any error.</li>
+        <li><code class="action">setError</code>: Sets an error message in the context.</li>
+        <li><code class="action">clearError</code>: Clears the error from the context.</li>
+        <li><code class="action">clearSession</code>: Clears the session data.</li>
+        <li><code class="action">setEmailFromPayload</code>: Sets the email from the event payload.</li>
+        <li><code class="action">clearForgotPasswordContext</code>: Clears email, reset action token, and pending credentials.</li>
+        <li><code class="action">clearRegistrationContext</code>: Clears email, registration action token, and pending credentials.</li>
+        <li><code class="action">setPendingCredentials</code>: Sets pending credentials from the event payload.</li>
+        <li><code class="action">clearPendingCredentials</code>: Clears pending credentials from the context.</li>
+        <li><code class="action">setRegistrationActionToken</code>: Sets the registration action token from output.</li>
+        <li><code class="action">setResetActionToken</code>: Sets the reset action token from output.</li>
+        <li><code class="action">setPendingCredentialsFromNewPassword</code>: Sets pending credentials with new password.</li>
     </ul>
 
 </body>
