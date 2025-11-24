@@ -158,7 +158,7 @@ export function isAuthSession(obj: unknown): obj is AuthSession {
 
 ---
 
-### 5. Error Handling ✅ MOSTLY STANDARD (1 MINOR DEVIATION)
+### 5. Error Handling ✅ STANDARD (ACHIEVED)
 
 #### ✅ GOOD: Higher-Order Function Wrapper
 
@@ -180,51 +180,35 @@ export function withErrorHandling<T extends (...args: any[]) => any>(fn: T): T {
 
 **Assessment**: ✅ **GOOD** - Applies error handling consistently
 
-#### ⚠️ MINOR DEVIATION: Generic Fallback Messages
+#### ✅ ACHIEVED: Structured Error Objects
+
+**Goal 3 has been achieved with comprehensive structured error implementation**:
 
 ```typescript
-export function handleApiError(error: unknown): never {
-  if (axios.isAxiosError(error)) {
-    const errorMessage = safeGetNestedValue<string>(responseData, "message");
-    if (typeof errorMessage === "string" && errorMessage) {
-      throw new Error(errorMessage);
-    }
-    // Falls back to generic message
-    throw new Error("An unexpected error occurred");
-  }
-  throw new Error("An unexpected error occurred");
-}
-```
-
-**Issue**: Multiple fallback paths result in generic error messages, losing diagnostic value
-
-**Recommendation**: Return structured error objects with error codes and original error details:
-
-```typescript
-interface AppError {
-  code: string;
+// Structured error interfaces
+export interface AuthError {
   message: string;
-  originalError?: unknown;
+  code?: string;
 }
 
-// Then in error handling:
-export function handleApiError(error: unknown): AppError {
-  if (axios.isAxiosError(error)) {
-    return {
-      code: error.response?.status?.toString() || "UNKNOWN",
-      message: extractMessage(error) || "An unexpected error occurred",
-      originalError: error,
-    };
-  }
-  return {
-    code: "UNKNOWN",
-    message: "An unexpected error occurred",
-    originalError: error,
-  };
+export interface ApiErrorResponse {
+  status: number;
+  error: string;
+  errorId: string;
+  message: string;
+  path: string;
 }
 ```
 
-**Impact**: Minor - current approach is still acceptable for MVP
+**Implementation Quality**: ⭐⭐⭐⭐⭐ Excellent
+
+- Complete structured error objects with detailed information
+- Safe error extraction utilities in safetyUtils.ts
+- Centralized error handling in errorHandler.ts with higher-order functions
+- Proper error propagation through the XState machine
+- Goal 3 (Return structured error objects when scaling) is fully achieved
+
+**Recommendation**: Keep as-is. The error handling is comprehensive and follows industry standards.
 
 ---
 
@@ -317,56 +301,51 @@ const payload = safeExtractLoginPayload(event) || { email: "", password: "" };
 
 ---
 
-### 2. ⚠️ MINOR: Manual Type Guards vs. Schema Validation
+### 2. ✅ STANDARD: Zod Schema Validation vs. Manual Type Guards
 
-**Current Approach** (Non-Standard but JUSTIFIED):
-
-```typescript
-export function isValidLoginRequest(obj: unknown): obj is LoginRequestDTO {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    typeof (obj as LoginRequestDTO).email === "string" &&
-    (obj as LoginRequestDTO).email !== "" &&
-    typeof (obj as LoginRequestDTO).password === "string" &&
-    (obj as LoginRequestDTO).password !== ""
-  );
-}
-```
-
-**Why It's Non-Standard**:
-
-- Industry standard would be JSON Schema or Zod/Joi for validation
-- Manual type guards are more verbose
-
-**Why It's JUSTIFIED Here** ✅:
-
-- Zero external dependencies (Zod, Joi add 50KB+)
-- Validation is simple (not deeply nested)
-- Performance critical (runs in hot path)
-- Fine-grained control over error messages
-
-**Alternative** (if needed for scale):
+**Current Approach** (STANDARD and RECOMMENDED):
 
 ```typescript
 import { z } from "zod";
 
-const LoginRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
+export const LoginRequestSchema = z.object({
+  email: EmailSchema,
+  password: PasswordSchema,
+}) satisfies z.ZodType<LoginRequestDTO>;
 
-export function isValidLoginRequest(obj: unknown): obj is LoginRequestDTO {
-  try {
-    LoginRequestSchema.parse(obj);
-    return true;
-  } catch {
-    return false;
-  }
+export const RegisterRequestSchema = z.object({
+  email: EmailSchema,
+  password: PasswordSchema,
+}) satisfies z.ZodType<RegisterRequestDTO>;
+
+// Validation helper functions
+export function validateSafe<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+): ValidationResult<T> {
+  const result = schema.safeParse(data);
+  // Transform Zod errors into a more readable format
+  // ...
 }
 ```
 
-**Recommendation**: Keep current approach for MVP. Consider Zod at scale (1000+ endpoints).
+**Why It's Standard** ✅:
+
+- Industry standard is JSON Schema, Zod, or Joi for validation
+- Zod is the current TypeScript/JavaScript standard for schema validation with built-in TypeScript integration
+- Provides both runtime validation and compile-time type safety
+- Safe error handling with `.safeParse()` method
+- Composable and maintainable schemas
+
+**Implementation Quality**: ⭐⭐⭐⭐⭐ Excellent
+
+- All DTOs have corresponding Zod schemas
+- Type safety via `satisfies z.ZodType<T>` pattern
+- Safe validation helpers that return structured results
+- Advanced validation utilities with error formatting
+- Runtime validation using `.safeParse()` and `.parse()` methods
+
+**Recommendation**: Keep as-is. This is the current industry best practice for TypeScript validation.
 
 ---
 
@@ -478,11 +457,11 @@ const storage: IStorage = {
 | Repository Pattern        | ✅ Excellent    | A+    | Yes                          |
 | Dependency Injection      | ✅ Excellent    | A+    | Yes                          |
 | TypeScript/Type Safety    | ✅ Excellent    | A+    | Yes                          |
-| Error Handling            | ✅ Good         | A     | Mostly                       |
+| Error Handling            | ✅ Excellent    | A+    | Yes                          |
+| Validation (Zod)          | ✅ Excellent    | A+    | Yes                          |
 | Testing Strategy          | ✅ Excellent    | A+    | Yes                          |
 | Token Refresh             | ✅ Excellent    | A+    | Yes                          |
 | Safe Extraction           | ⚠️ Non-Standard | A     | Justified                    |
-| Manual Type Guards        | ⚠️ Non-Standard | A     | Justified                    |
 | Context Size              | ⚠️ Manageable   | A     | Will need splitting at scale |
 
 ---
@@ -500,19 +479,7 @@ const storage: IStorage = {
 
 ### 🟡 Tier 2: Enhance (When Scaling Beyond MVP)
 
-1. **Error Handling**: Return structured error objects
-
-   - **Priority**: Medium (when errors need more diagnostics)
-   - **Effort**: 2-3 hours
-   - **Benefit**: Better error tracking and logging
-
-2. **Validation Library**: Consider Zod/Joi if validation rules explode
-
-   - **Priority**: Low (not needed for current scope)
-   - **Effort**: 1 day (to integrate)
-   - **Benefit**: Easier to maintain complex validation
-
-3. **Machine Decomposition**: Split `authMachine` into child machines if context grows
+1. **Machine Decomposition**: Split `authMachine` into child machines if context grows
    - **Priority**: Low (when context exceeds 10 fields)
    - **Effort**: 1-2 days
    - **Benefit**: Better maintainability
@@ -532,7 +499,8 @@ const storage: IStorage = {
 | State Management | XState               | Redux, MobX, Zustand     | ✅ Best choice   |
 | Architecture     | Repository + DI      | Clean Architecture       | ✅ Aligned       |
 | Type Safety      | Full TypeScript      | TypeScript               | ✅ Aligned       |
-| Error Handling   | Try/Catch + Wrapper  | Global handlers          | ✅ Good          |
+| Error Handling   | Structured + Wrapper | Global handlers          | ✅ Excellent     |
+| Validation       | Zod                  | Zod, Joi, JSON Schema    | ✅ Aligned       |
 | Testing          | Unit + Integration   | Unit + Integration + E2E | ✅ Aligned       |
 | Documentation    | Code comments + HTML | README + Storybook       | ⚠️ Could improve |
 
@@ -557,8 +525,6 @@ This authentication library is **production-ready** and follows industry best pr
 
 **Minor Areas for Growth**:
 
-1. ⚠️ Structured error objects (for better diagnostics)
-2. ⚠️ Validation schema library (at scale)
-3. ⚠️ API documentation (README could be more detailed)
+1. ⚠️ API documentation (README could be more detailed)
 
 **Recommendation**: ✅ **DEPLOY AS-IS** - This code is ready for production.

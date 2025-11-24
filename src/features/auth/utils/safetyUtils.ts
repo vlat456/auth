@@ -19,7 +19,7 @@ import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
  */
 export function hasRequiredProperties<T extends Record<string, unknown>>(
   obj: unknown,
-  requiredKeys: (keyof T)[],
+  requiredKeys: (keyof T)[]
 ): obj is T {
   // Reject non-objects, null, and ARRAYS
   if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
@@ -73,7 +73,7 @@ export function safeExtractErrorMessage(event: AuthEvent): string | undefined {
  * Safely extract payload from an event
  */
 export function safeExtractPayload<T = Record<string, unknown>>(
-  event: AuthEvent,
+  event: AuthEvent
 ): T | undefined {
   if (
     "payload" in event &&
@@ -89,7 +89,7 @@ export function safeExtractPayload<T = Record<string, unknown>>(
  * Safely extract and validate login payload from event
  */
 export function safeExtractLoginPayload(
-  event: AuthEvent,
+  event: AuthEvent
 ): LoginRequestDTO | undefined {
   const payload = safeExtractPayload(event);
   if (isValidLoginRequest(payload)) {
@@ -103,7 +103,7 @@ export function safeExtractLoginPayload(
  */
 export function safeExtractStringFromPayload(
   event: AuthEvent,
-  key: string,
+  key: string
 ): string | undefined {
   const payload = safeExtractPayload(event);
   if (payload && typeof payload[key] === "string") {
@@ -116,7 +116,7 @@ export function safeExtractStringFromPayload(
  * Safely extract output from an event
  */
 export function safeExtractOutput<T = unknown>(
-  event: AuthEvent,
+  event: AuthEvent
 ): T | undefined {
   if ("output" in event && event.output !== undefined) {
     return event.output as T;
@@ -150,7 +150,7 @@ export function safeExtractNewPassword(event: AuthEvent): string | undefined {
  */
 export function safeGetStringFromContext(
   value: string | undefined,
-  fallback: string = "",
+  fallback: string = ""
 ): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -159,7 +159,7 @@ export function safeGetStringFromContext(
  * Safely validate RegisterRequestDTO
  */
 export function isValidRegisterRequest(
-  payload: unknown,
+  payload: unknown
 ): payload is { email: string; password: string } {
   if (typeof payload === "object" && payload !== null) {
     const dto = payload as Record<string, unknown>;
@@ -177,7 +177,7 @@ export function isValidRegisterRequest(
  * Safely validate RequestOtpDTO
  */
 export function isValidRequestOtp(
-  payload: unknown,
+  payload: unknown
 ): payload is { email: string } {
   if (typeof payload === "object" && payload !== null) {
     const dto = payload as Record<string, unknown>;
@@ -190,7 +190,7 @@ export function isValidRequestOtp(
  * Safely validate VerifyOtpDTO
  */
 export function isValidVerifyOtp(
-  payload: unknown,
+  payload: unknown
 ): payload is { email: string; otp: string } {
   if (typeof payload === "object" && payload !== null) {
     const dto = payload as Record<string, unknown>;
@@ -208,7 +208,7 @@ export function isValidVerifyOtp(
  * Safely extract and validate register payload from event
  */
 export function safeExtractRegisterPayload(
-  event: AuthEvent,
+  event: AuthEvent
 ): { email: string; password: string } | undefined {
   const payload = safeExtractPayload(event);
   if (isValidRegisterRequest(payload)) {
@@ -221,7 +221,7 @@ export function safeExtractRegisterPayload(
  * Safely extract and validate OTP request payload from event
  */
 export function safeExtractOtpRequestPayload(
-  event: AuthEvent,
+  event: AuthEvent
 ): { email: string } | undefined {
   const payload = safeExtractPayload(event);
   if (isValidRequestOtp(payload)) {
@@ -234,7 +234,7 @@ export function safeExtractOtpRequestPayload(
  * Safely extract and validate verify OTP payload from event
  */
 export function safeExtractVerifyOtpPayload(
-  event: AuthEvent,
+  event: AuthEvent
 ): { email: string; otp: string } | undefined {
   const payload = safeExtractPayload(event);
   if (isValidVerifyOtp(payload)) {
@@ -247,7 +247,7 @@ export function safeExtractVerifyOtpPayload(
  * Safely extract new password from RESET_PASSWORD event
  */
 export function safeExtractResetPasswordPayload(
-  event: AuthEvent,
+  event: AuthEvent
 ): { newPassword: string } | undefined {
   const payload = safeExtractPayload<{ newPassword: unknown }>(event);
   if (payload && typeof payload.newPassword === "string") {
@@ -260,7 +260,7 @@ export function safeExtractResetPasswordPayload(
  * Safely get AuthSession from output with validation
  */
 export function safeExtractSessionOutput(
-  event: AuthEvent,
+  event: AuthEvent
 ): AuthSession | undefined {
   const output = safeExtractOutput(event);
   if (isAuthSession(output)) {
@@ -273,7 +273,7 @@ export function safeExtractSessionOutput(
  * Safely validate LoginRequestDTO
  */
 export function isValidLoginRequest(
-  payload: unknown,
+  payload: unknown
 ): payload is LoginRequestDTO {
   if (typeof payload === "object" && payload !== null) {
     const dto = payload as LoginRequestDTO;
@@ -314,7 +314,7 @@ export function safeExtractActionToken(token: string | undefined): string {
  * Safely extract password from pending credentials
  */
 export function safeExtractPasswordFromPending(
-  pending: LoginRequestDTO | undefined,
+  pending: LoginRequestDTO | undefined
 ): string {
   if (pending && typeof pending.password === "string") {
     return pending.password;
@@ -328,7 +328,7 @@ export function safeExtractPasswordFromPending(
 export function safeGetNestedValue<T>(
   obj: unknown,
   path: string,
-  defaultValue?: T,
+  defaultValue?: T
 ): T | undefined {
   if (typeof obj !== "object" || obj === null) return defaultValue;
 
@@ -351,7 +351,7 @@ export function safeGetNestedValue<T>(
 export function safeArrayAccess<T>(
   arr: T[] | undefined,
   index: number,
-  defaultValue?: T,
+  defaultValue?: T
 ): T | undefined {
   if (!Array.isArray(arr) || index < 0 || index >= arr.length) {
     return defaultValue;
