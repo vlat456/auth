@@ -17,7 +17,7 @@ import {
 } from "../types";
 
 export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO
+  pending?: LoginRequestDTO,
 ): string => {
   if (
     pending &&
@@ -67,12 +67,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       registerUser: fromPromise(
         async ({ input }: { input: RegisterRequestDTO }) => {
           return await authRepository.register(input);
-        }
+        },
       ),
       requestPasswordReset: fromPromise(
         async ({ input }: { input: RequestOtpDTO }) => {
           return await authRepository.requestPasswordReset(input);
-        }
+        },
       ),
       verifyOtp: fromPromise(async ({ input }: { input: VerifyOtpDTO }) => {
         return await authRepository.verifyOtp(input);
@@ -80,12 +80,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       completeRegistration: fromPromise(
         async ({ input }: { input: CompleteRegistrationDTO }) => {
           return await authRepository.completeRegistration(input);
-        }
+        },
       ),
       completePasswordReset: fromPromise(
         async ({ input }: { input: CompletePasswordResetDTO }) => {
           return await authRepository.completePasswordReset(input);
-        }
+        },
       ),
       logoutUser: fromPromise(async () => {
         return await authRepository.logout();
@@ -110,7 +110,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         session: null,
       }),
       setEmailFromPayload: assign({
-        email: ({ event }) => (event as any).payload.email,
+        email: ({ event }) => (event as any).payload?.email,
       }),
       clearForgotPasswordContext: assign({
         email: undefined,
@@ -136,7 +136,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       }),
       setPendingCredentialsFromNewPassword: assign({
         pendingCredentials: ({ context, event }) => ({
-          email: context.email!,
+          email: context.email ?? "",
           password: (event as any).payload.newPassword,
         }),
       }),
@@ -258,7 +258,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) => ({
-                    email: context.email!,
+                    email: context.email ?? "",
                     otp: (event as any).payload.otp,
                   }),
                   onDone: {
@@ -275,9 +275,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "completeRegistration",
                   input: ({ context }) => ({
-                    actionToken: context.registrationActionToken!,
+                    actionToken: context.registrationActionToken ?? "",
                     newPassword: resolveRegistrationPassword(
-                      context.pendingCredentials
+                      context.pendingCredentials,
                     ),
                   }),
                   onDone: "loggingIn",
@@ -290,7 +290,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               loggingIn: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) => context.pendingCredentials!,
+                  input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
                   onDone: {
                     target: "#auth.authorized",
                     actions: [
@@ -359,7 +359,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) => ({
-                    email: context.email!,
+                    email: context.email ?? "",
                     otp: (event as any).payload.otp,
                   }),
                   onDone: {
@@ -385,8 +385,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "completePasswordReset",
                   input: ({ context }) => ({
-                    actionToken: context.resetActionToken!,
-                    newPassword: context.pendingCredentials!.password,
+                    actionToken: context.resetActionToken ?? "",
+                    newPassword: context.pendingCredentials?.password ?? "",
                   }),
                   onDone: "loggingInAfterReset",
                   onError: {
@@ -398,7 +398,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               loggingInAfterReset: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) => context.pendingCredentials!,
+                  input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
                   onDone: {
                     target: "#auth.authorized",
                     actions: [

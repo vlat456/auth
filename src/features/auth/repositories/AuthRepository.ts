@@ -24,7 +24,7 @@ import {
   UserProfile,
   IStorage,
 } from "../types";
-import { handleApiError, withErrorHandling } from "../utils/errorHandler";
+import { withErrorHandling } from "../utils/errorHandler";
 
 const STORAGE_KEY = "user_session_token";
 
@@ -44,7 +44,7 @@ export class AuthRepository implements IAuthRepository {
 
   constructor(
     storage: IStorage,
-    baseURL: string = "https://api.astra.example.com"
+    baseURL: string = "https://api.astra.example.com",
   ) {
     this.storage = storage;
     this.apiClient = axios.create({
@@ -115,8 +115,9 @@ export class AuthRepository implements IAuthRepository {
     try {
       // Attempt to refresh the session using the refresh token
       return await this.refresh(session.refreshToken);
-    } catch (refreshError) {
+    } catch (refreshError: unknown) {
       // If refresh fails, logout and return null
+      console.error('Token refresh failed:', refreshError);
       await this.logout();
       return null;
     }
@@ -131,10 +132,10 @@ export class AuthRepository implements IAuthRepository {
       const enrichedSession: AuthSession = { ...session, profile: data };
       await this.saveSession(enrichedSession);
       return enrichedSession;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const response = error.response;
-        if (response && response.status === 401) {
+        if (response?.status === 401) {
           // Server rejected the token, try to refresh
           return await this.handle401Error();
         }
@@ -146,7 +147,7 @@ export class AuthRepository implements IAuthRepository {
 
   private async handle401Error(): Promise<AuthSession | null> {
     const session = await this.readSession();
-    if (!session || !session.refreshToken) {
+    if (!session?.refreshToken) {
       // No session or no refresh token, just return null
       // Don't logout if there was no session to begin with
       if (session) {
@@ -158,8 +159,9 @@ export class AuthRepository implements IAuthRepository {
     try {
       // Attempt to refresh using the available refresh token
       return await this.refresh(session.refreshToken);
-    } catch (refreshError) {
+    } catch (refreshError: unknown) {
       // If refresh fails, logout and return null
+      console.error('Token refresh after 401 failed:', refreshError);
       await this.logout();
       return null;
     }
@@ -180,7 +182,7 @@ export class AuthRepository implements IAuthRepository {
     const refreshedSession: AuthSession = {
       accessToken: data.data.accessToken,
       refreshToken: currentSession.refreshToken, // Keep the existing refresh token
-      profile: currentSession.profile // Keep the existing profile
+      profile: currentSession.profile, // Keep the existing profile
     };
 
     await this.saveSession(refreshedSession);
@@ -202,20 +204,34 @@ export class AuthRepository implements IAuthRepository {
     if (!raw) return null;
 
     try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.accessToken === "string") {
+      // Define type interface for safer parsing
+      interface ParsedToken {
+        accessToken: string;
+        refreshToken?: string;
+        profile?: UserProfile;
+      }
+
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed != null && typeof parsed === "object" && typeof (parsed as ParsedToken).accessToken === "string") {
+        const parsedToken = parsed as ParsedToken;
         let refreshToken: string | undefined;
-        if (typeof parsed.refreshToken === "string") {
-          refreshToken = parsed.refreshToken;
+        if (typeof parsedToken.refreshToken === "string") {
+          refreshToken = parsedToken.refreshToken;
+        }
+
+        let profile: UserProfile | undefined;
+        if (parsedToken.profile && typeof parsedToken.profile === "object") {
+          profile = parsedToken.profile;
         }
 
         return {
-          accessToken: parsed.accessToken,
+          accessToken: parsedToken.accessToken,
           refreshToken,
-          profile: parsed.profile,
+          profile,
         };
       }
-    } catch {
+    } catch (error) {
+      console.error("Error parsing session token:", error);
       // Fall back to legacy string token storage
       if (typeof raw === "string" && raw.startsWith("{") === false) {
         return { accessToken: raw };
@@ -237,7 +253,7 @@ export class AuthRepository implements IAuthRepository {
       // Decode payload (2nd part)
       const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
 
-      let jsonString;
+      let jsonString: string;
       if (typeof atob === "function") {
         // Browser / RN / Modern Node
         jsonString = atob(payloadBase64);
@@ -249,7 +265,7 @@ export class AuthRepository implements IAuthRepository {
         return false;
       }
 
-      const payload = JSON.parse(jsonString);
+      const payload: { exp?: number } = JSON.parse(jsonString);
 
       if (!payload.exp) return false; // No expiration field, let server decide
 
@@ -257,11 +273,10 @@ export class AuthRepository implements IAuthRepository {
       const currentTime = Math.floor(Date.now() / 1000);
 
       return payload.exp < currentTime;
-    } catch (e) {
+    } catch {
       return true; // Malformed token
     }
   }
-
 
   private initializeInterceptors() {
     this.apiClient.interceptors.response.use(
@@ -285,7 +300,7 @@ export class AuthRepository implements IAuthRepository {
           return this.apiClient(config);
         }
         return Promise.reject(error);
-      }
+      },
     );
   }
 }

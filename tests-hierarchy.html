@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Hierarchy - Auth Logic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-suite {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: #fafafa;
+        }
+        .suite-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2980b9;
+            margin-bottom: 10px;
+            background-color: #3498db;
+            color: white;
+            padding: 8px;
+            border-radius: 3px;
+        }
+        .test-describe {
+            margin: 15px 0;
+            padding: 10px;
+            border-left: 3px solid #3498db;
+            background-color: #f9f9f9;
+        }
+        .describe-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .test-case {
+            margin: 5px 0;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+        }
+        .test-case::before {
+            content: "✓ ";
+            color: #27ae60;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .test-count {
+            background-color: #3498db;
+            color: white;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .summary {
+            background-color: #eaf7d9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        .stat {
+            margin: 10px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #27ae60;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+        .file-path {
+            font-family: monospace;
+            background-color: #ecf0f1;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Hierarchy - Auth Logic</h1>
+        
+        <div class="summary">
+            <h2>Test Summary</h2>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Test Suites</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">78</div>
+                    <div class="stat-label">Tests Passed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Tests Failed</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-suite">
+            <div class="suite-title">Auth Machine Tests <span class="test-count">20 tests</span></div>
+            <div class="file-path">src/features/auth/machine/authMachine.test.ts</div>
+            
+            <div class="test-describe">
+                <div class="describe-title">Auth Machine</div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Initialization</div>
+                    <div class="test-case">should move to unauthorized if no session</div>
+                    <div class="test-case">should move to authorized if session exists</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Login Flow</div>
+                    <div class="test-case">should handle success</div>
+                    <div class="test-case">should return to idle with an error on failure</div>
+                    <div class="test-case">should fall back to default error message when failure lacks detail</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Register Flow</div>
+                    <div class="test-case">should handle full OTP-based registration flow</div>
+                    <div class="test-case">should return to form with an error when register fails</div>
+                    <div class="test-case">should show default error when register rejects without payload</div>
+                    <div class="test-case">should surface OTP errors</div>
+                    <div class="test-case">should ignore VERIFY_OTP when email context is missing</div>
+                    <div class="test-case">should complete registration with empty password when none stored</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Forgot Password Flow</div>
+                    <div class="test-case">should handle request failure</div>
+                    <div class="test-case">should handle OTP verification failure</div>
+                    <div class="test-case">should handle the full forgot password flow</div>
+                    <div class="test-case">should ignore VERIFY_OTP when email context is missing</div>
+                    <div class="test-case">should ignore RESET_PASSWORD when no action token exists</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Navigation & Logout</div>
+                    <div class="test-case">should navigate between sub-states</div>
+                    <div class="test-case">should logout and clear session</div>
+                </div>
+            </div>
+            
+            <div class="test-describe">
+                <div class="describe-title">resolveRegistrationPassword</div>
+                <div class="test-case">returns provided password when non-empty string</div>
+                <div class="test-case">returns empty string when password is missing or blank</div>
+            </div>
+        </div>
+        
+        <div class="test-suite">
+            <div class="suite-title">Auth Repository Tests <span class="test-count">50 tests</span></div>
+            <div class="file-path">src/features/auth/repositories/AuthRepository.test.ts</div>
+            
+            <div class="test-describe">
+                <div class="describe-title">AuthRepository</div>
+                <div class="test-case">should create an axios instance with the provided baseURL</div>
+                <div class="test-case">should fall back to the default baseURL when none is provided</div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Login & Register</div>
+                    <div class="test-case">should call API, save session, and return tokens on login success</div>
+                    <div class="test-case">should register user via OTP-init endpoint without touching storage</div>
+                    <div class="test-case">should surface server errors when login fails</div>
+                    <div class="test-case">should surface fallback message when register fails without server message</div>
+                    <div class="test-case">should throw network error message when no response payload exists</div>
+                    <div class="test-case">should throw a generic error if error has no message</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Check Session (JWT Logic)</div>
+                    <div class="test-case">should return null if no token exists</div>
+                    <div class="test-case">should skip API and LOGOUT if token is locally expired</div>
+                    <div class="test-case">should proceed to API if token is locally valid</div>
+                    <div class="test-case">should drop non-string refresh tokens when reading session</div>
+                    <div class="test-case">should keep refresh token when stored session includes string value</div>
+                    <div class="test-case">should LOGOUT if token is locally valid but server rejects it (401)</div>
+                    <div class="test-case">should return null without logout when server responds with non-401 error</div>
+                    <div class="test-case">should handle network errors without response object</div>
+                    <div class="test-case">should handle legacy plain string tokens gracefully</div>
+                    <div class="test-case">should handle malformed tokens gracefully (treat as invalid)</div>
+                    <div class="test-case">should return null when stored JSON lacks accessToken</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Request Password Reset</div>
+                    <div class="test-case">should call OTP request endpoint</div>
+                    <div class="test-case">should throw when OTP request fails</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Verify OTP and Reset Password</div>
+                    <div class="test-case">should call verify-otp endpoint and return action token</div>
+                    <div class="test-case">should throw when verify-otp fails</div>
+                    <div class="test-case">should call password reset completion endpoint</div>
+                    <div class="test-case">should throw when password reset completion fails</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Complete Registration</div>
+                    <div class="test-case">should call complete registration endpoint</div>
+                    <div class="test-case">should throw when completion fails</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Logout</div>
+                    <div class="test-case">should remove token from storage</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Retry Logic</div>
+                    <div class="test-case">should retry on 503</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Response Interceptor</div>
+                    <div class="test-case">should return response as-is for success handler</div>
+                    <div class="test-case">should not retry when error is non-retryable</div>
+                    <div class="test-case">should reject immediately when config is missing</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">isTokenExpired</div>
+                    <div class="test-case">returns false when token lacks exp so server can decide</div>
+                    <div class="test-case">uses Buffer fallback when atob is unavailable</div>
+                    <div class="test-case">returns true when payload cannot be parsed</div>
+                    <div class="test-case">returns false when neither atob nor Buffer are available</div>
+                    <div class="test-case">returns true when token is missing required segments</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Refresh Token</div>
+                    <div class="test-case">should refresh access token using refresh token</div>
+                    <div class="test-case">should throw error when refresh token request fails</div>
+                    <div class="test-case">should throw error when no current session exists during refresh</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">Check Session with Expired Tokens</div>
+                    <div class="test-case">should logout and return null when token is expired but no refresh token is present</div>
+                    <div class="test-case">should attempt refresh when 401 occurs and refresh token is available</div>
+                    <div class="test-case">should logout when 401 occurs and refresh token is not available</div>
+                    <div class="test-case">should logout when token is expired and refresh attempt fails</div>
+                    <div class="test-case">should logout when 401 occurs and refresh attempt fails</div>
+                    <div class="test-case">should return null without logout when non-401 error occurs</div>
+                    <div class="test-case">should return null without logout when non-axios error occurs</div>
+                    <div class="test-case">should logout and return null when 401 occurs and no refresh token is available</div>
+                    <div class="test-case">should return null without logout when 401 occurs and no session exists for refresh</div>
+                    <div class="test-case">should cover final return path when 401 error has response and no refresh token</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-suite">
+            <div class="suite-title">Error Handler Tests <span class="test-count">8 tests</span></div>
+            <div class="file-path">src/features/auth/utils/errorHandler.test.ts</div>
+            
+            <div class="test-describe">
+                <div class="describe-title">errorHandler</div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">handleApiError</div>
+                    <div class="test-case">should throw server-provided error message</div>
+                    <div class="test-case">should fall back to axios error message when no server message</div>
+                    <div class="test-case">should throw generic message when no meaningful message exists</div>
+                    <div class="test-case">should throw generic message when not an Axios error</div>
+                    <div class="test-case">should throw generic message for non-axios error</div>
+                </div>
+                
+                <div class="test-describe">
+                    <div class="describe-title">withErrorHandling</div>
+                    <div class="test-case">should return the result when function succeeds</div>
+                    <div class="test-case">should handle errors from async functions</div>
+                    <div class="test-case">should handle errors from sync functions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

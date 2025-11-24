@@ -9,7 +9,7 @@ export function handleApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
     const response = (error as AxiosError).response;
     const responseData = response ? response.data : undefined;
-    
+
     // Try to get a meaningful error message from the response
     if (
       responseData &&
