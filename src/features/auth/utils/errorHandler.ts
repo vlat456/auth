@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { safeGetNestedValue } from "./safetyUtils";
 
 /**
  * Handles API errors and throws a user-friendly error
@@ -10,14 +11,10 @@ export function handleApiError(error: unknown): never {
     const response = (error as AxiosError).response;
     const responseData = response ? response.data : undefined;
 
-    // Try to get a meaningful error message from the response
-    if (
-      responseData &&
-      typeof responseData === "object" &&
-      typeof (responseData as any).message === "string" &&
-      (responseData as any).message
-    ) {
-      throw new Error((responseData as any).message);
+    // Try to get a meaningful error message from the response using safe navigation
+    const errorMessage = safeGetNestedValue<string>(responseData, 'message');
+    if (typeof errorMessage === "string" && errorMessage) {
+      throw new Error(errorMessage);
     }
 
     // Fall back to the error message from the axios error

@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">63.63% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>14/22</span>
             </div>
         
             
@@ -976,7 +976,7 @@ import {
 } from "../types";
 &nbsp;
 export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO
+  pending?: LoginRequestDTO,
 ): string =&gt; {
   if (
     pending &amp;&amp;
@@ -1026,12 +1026,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
       registerUser: fromPromise(
         async ({ input }: { input: RegisterRequestDTO }) =&gt; {
           return await authRepository.register(input);
-        }
+        },
       ),
       requestPasswordReset: fromPromise(
         async ({ input }: { input: RequestOtpDTO }) =&gt; {
           return await authRepository.requestPasswordReset(input);
-        }
+        },
       ),
       verifyOtp: fromPromise(async ({ input }: { input: VerifyOtpDTO }) =&gt; {
         return await authRepository.verifyOtp(input);
@@ -1039,12 +1039,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
       completeRegistration: fromPromise(
         async ({ input }: { input: CompleteRegistrationDTO }) =&gt; {
           return await authRepository.completeRegistration(input);
-        }
+        },
       ),
       completePasswordReset: fromPromise(
         async ({ input }: { input: CompletePasswordResetDTO }) =&gt; {
           return await authRepository.completePasswordReset(input);
-        }
+        },
       ),
       logoutUser: fromPromise(async () =&gt; {
         return await authRepository.logout();
@@ -1058,7 +1058,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
       setError: assign({
         error: ({ event }) =&gt; ({
           message:
-            ((event as any).error as Error | undefined)?.message ||
+            (event as any).error?.message ||
             "An unexpected error occurred",
         }),
       }),
@@ -1069,7 +1069,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
         session: null,
       }),
       setEmailFromPayload: assign({
-        email: ({ event }) =&gt; (event as any).payload.email,
+        email: ({ event }) =&gt; (event as any).payload?.email,
       }),
       clearForgotPasswordContext: assign({
         email: undefined,
@@ -1095,7 +1095,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
       }),
       setPendingCredentialsFromNewPassword: assign({
         pendingCredentials: ({ context, event }) =&gt; ({
-          email: context.email!,
+          email: context.email ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
           password: (event as any).payload.newPassword,
         }),
       }),
@@ -1217,7 +1217,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) =&gt; ({
-                    email: context.email!,
+                    email: context.email ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
                     otp: (event as any).payload.otp,
                   }),
                   onDone: {
@@ -1234,9 +1234,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
                 invoke: {
                   src: "completeRegistration",
                   input: ({ context }) =&gt; ({
-                    actionToken: context.registrationActionToken!,
+                    actionToken: context.registrationActionToken ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
                     newPassword: resolveRegistrationPassword(
-                      context.pendingCredentials
+                      context.pendingCredentials,
                     ),
                   }),
                   onDone: "loggingIn",
@@ -1249,7 +1249,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
               loggingIn: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) =&gt; context.pendingCredentials!,
+                  input: ({ context }) =&gt; context.pendingCredentials ?? <span class="branch-1 cbranch-no" title="branch not covered" >{ email: "", password: "" },</span>
                   onDone: {
                     target: "#auth.authorized",
                     actions: [
@@ -1318,7 +1318,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) =&gt; ({
-                    email: context.email!,
+                    email: context.email ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
                     otp: (event as any).payload.otp,
                   }),
                   onDone: {
@@ -1344,8 +1344,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
                 invoke: {
                   src: "completePasswordReset",
                   input: ({ context }) =&gt; ({
-                    actionToken: context.resetActionToken!,
-                    newPassword: context.pendingCredentials!.password,
+                    actionToken: context.resetActionToken ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
+                    newPassword: context.pendingCredentials?.password ?? <span class="branch-1 cbranch-no" title="branch not covered" >"",</span>
                   }),
                   onDone: "loggingInAfterReset",
                   onError: {
@@ -1357,7 +1357,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
               loggingInAfterReset: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) =&gt; context.pendingCredentials!,
+                  input: ({ context }) =&gt; context.pendingCredentials ?? <span class="branch-1 cbranch-no" title="branch not covered" >{ email: "", password: "" },</span>
                   onDone: {
                     target: "#auth.authorized",
                     actions: [
@@ -1411,7 +1411,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-24T14:21:15.486Z
+                at 2025-11-24T15:58:15.107Z
             </div>
         <script src="../prettify.js"></script>
         <script>

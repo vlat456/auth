@@ -25,6 +25,12 @@ import {
   IStorage,
 } from "../types";
 import { withErrorHandling } from "../utils/errorHandler";
+import {
+  hasRequiredProperties,
+  isAuthSession,
+  isUserProfile,
+  safeGetNestedValue
+} from "../utils/safetyUtils";
 
 const STORAGE_KEY = "user_session_token";
 
@@ -57,12 +63,31 @@ export class AuthRepository implements IAuthRepository {
   }
 
   login = withErrorHandling(async (payload: LoginRequestDTO): Promise<AuthSession> => {
-    const { data } = await this.apiClient.post<
+    const response = await this.apiClient.post<
       ApiSuccessResponse<LoginResponseDTO>
     >("/auth/login", payload);
+
+    // Validate the response structure before accessing nested properties
+    const responseData = response.data;
+    if (!hasRequiredProperties<Record<string, unknown>>(responseData, ['data'])) {
+      throw new Error("Invalid login response: missing data property");
+    }
+
+    const dataPayload = safeGetNestedValue(responseData, 'data');
+    if (!hasRequiredProperties<Record<string, unknown>>(dataPayload, ['accessToken'])) {
+      throw new Error("Invalid login response: missing accessToken in data");
+    }
+
+    const accessToken = safeGetNestedValue<string>(dataPayload, 'accessToken');
+    const refreshToken = safeGetNestedValue<string>(dataPayload, 'refreshToken');
+
+    if (!accessToken || typeof accessToken !== 'string') {
+      throw new Error("Invalid login response: accessToken is not a valid string");
+    }
+
     const session: AuthSession = {
-      accessToken: data.data.accessToken,
-      refreshToken: data.data.refreshToken,
+      accessToken,
+      refreshToken, // refreshToken can be undefined
     };
     await this.saveSession(session);
     return session;
@@ -125,11 +150,18 @@ export class AuthRepository implements IAuthRepository {
 
   private async validateSessionWithServer(session: AuthSession): Promise<AuthSession | null> {
     try {
-      const { data } = await this.apiClient.get<UserProfile>("/auth/me", {
+      const response = await this.apiClient.get<UserProfile>("/auth/me", {
         headers: { Authorization: `Bearer ${session.accessToken}` },
       });
 
-      const enrichedSession: AuthSession = { ...session, profile: data };
+      // Validate the response data before using it
+      const userData = response.data;
+      if (!isUserProfile(userData)) {
+        console.error("Invalid user profile received from server");
+        return null;
+      }
+
+      const enrichedSession: AuthSession = { ...session, profile: userData };
       await this.saveSession(enrichedSession);
       return enrichedSession;
     } catch (error: unknown) {
@@ -168,9 +200,25 @@ export class AuthRepository implements IAuthRepository {
   }
 
   refresh = withErrorHandling(async (refreshToken: string): Promise<AuthSession> => {
-    const { data } = await this.apiClient.post<
+    const response = await this.apiClient.post<
       ApiSuccessResponse<RefreshResponseData>
     >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
+
+    // Validate the response structure before accessing nested properties
+    const responseData = response.data;
+    if (!hasRequiredProperties<Record<string, unknown>>(responseData, ['data'])) {
+      throw new Error("Invalid refresh response: missing data property");
+    }
+
+    const dataPayload = safeGetNestedValue(responseData, 'data');
+    if (!hasRequiredProperties<Record<string, unknown>>(dataPayload, ['accessToken'])) {
+      throw new Error("Invalid refresh response: missing accessToken in data");
+    }
+
+    const newAccessToken = safeGetNestedValue<string>(dataPayload, 'accessToken');
+    if (!newAccessToken || typeof newAccessToken !== 'string') {
+      throw new Error("Invalid refresh response: accessToken is not a valid string");
+    }
 
     // Get the current session to preserve other data
     const currentSession = await this.readSession();
@@ -180,7 +228,7 @@ export class AuthRepository implements IAuthRepository {
 
     // Create new session with fresh access token but keep existing refresh token and profile
     const refreshedSession: AuthSession = {
-      accessToken: data.data.accessToken,
+      accessToken: newAccessToken,
       refreshToken: currentSession.refreshToken, // Keep the existing refresh token
       profile: currentSession.profile, // Keep the existing profile
     };
@@ -212,15 +260,23 @@ export class AuthRepository implements IAuthRepository {
       }
 
       const parsed: unknown = JSON.parse(raw);
-      if (parsed != null && typeof parsed === "object" && typeof (parsed as ParsedToken).accessToken === "string") {
-        const parsedToken = parsed as ParsedToken;
+
+      // Use hasRequiredProperties to validate the parsed object
+      if (hasRequiredProperties<Record<string, unknown>>(parsed, ['accessToken'])) {
+        // Now that we know it has accessToken, we can safely cast
+        const parsedToken = parsed as {
+          accessToken: string;
+          refreshToken?: string;
+          profile?: UserProfile
+        };
+
         let refreshToken: string | undefined;
         if (typeof parsedToken.refreshToken === "string") {
           refreshToken = parsedToken.refreshToken;
         }
 
         let profile: UserProfile | undefined;
-        if (parsedToken.profile && typeof parsedToken.profile === "object") {
+        if (parsedToken.profile && isUserProfile(parsedToken.profile)) {
           profile = parsedToken.profile;
         }
 

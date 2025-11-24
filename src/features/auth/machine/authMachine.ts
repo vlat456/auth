@@ -99,7 +99,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       setError: assign({
         error: ({ event }) => ({
           message:
-            ((event as any).error as Error | undefined)?.message ||
+            (event as any).error?.message ||
             "An unexpected error occurred",
         }),
       }),
