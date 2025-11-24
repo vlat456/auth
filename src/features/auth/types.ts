@@ -105,5 +105,6 @@ export interface IAuthRepository {
   completeRegistration(payload: CompleteRegistrationDTO): Promise<void>;
   completePasswordReset(payload: CompletePasswordResetDTO): Promise<void>;
   checkSession(): Promise<AuthSession | null>;
+  refresh(refreshToken: string): Promise<AuthSession>;
   logout(): Promise<void>;
 }

@@ -554,33 +554,309 @@ describe("AuthRepository", () => {
     });
   });
 
-  describe("handleError", () => {
-    it("prefers server-provided error messages", () => {
-      const axiosError = {
-        response: { data: { message: "Server exploded" } },
-        message: "local",
+
+  describe("Refresh Token", () => {
+    it("should refresh access token using refresh token", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+      const newAccessToken = createMockJwt(Math.floor(Date.now() / 1000) + 7200);
+
+      const sessionWithRefresh = {
+        accessToken: validToken,
+        refreshToken: "refresh-123",
       };
-      expect(() =>
-        (repository as any).handleError(axiosError)
-      ).toThrow("Server exploded");
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify(sessionWithRefresh)
+      );
+
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: newAccessToken },
+        },
+      });
+
+      const result = await repository.refresh("refresh-123");
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/refresh-token", {
+        refreshToken: "refresh-123",
+      });
+      expect(result).toEqual({
+        accessToken: newAccessToken,
+        refreshToken: "refresh-123", // Should keep the same refresh token
+      });
+      expect(mockStorage.setItem).toHaveBeenCalledWith(
+        "user_session_token",
+        JSON.stringify({
+          accessToken: newAccessToken,
+          refreshToken: "refresh-123",
+        })
+      );
     });
 
-    it("falls back to generic message when not an Axios error", () => {
-      mockedAxios.isAxiosError.mockReturnValue(false);
-      expect(() =>
-        (repository as any).handleError(new Error("boom"))
-      ).toThrow("An unexpected error occurred");
-      mockedAxios.isAxiosError.mockReturnValue(true);
+    it("should throw error when refresh token request fails", async () => {
+      mockAxiosInstance.post.mockRejectedValue({
+        response: { data: { message: "Invalid refresh token" } },
+      });
+
+      await expect(repository.refresh("invalid-refresh-token"))
+        .rejects.toThrow("Invalid refresh token");
     });
 
-    it("falls back to default message inside axios branch when no message exists", () => {
-      const axiosError = {
-        response: { data: {} },
-        message: "",
-      };
-      expect(() =>
-        (repository as any).handleError(axiosError)
-      ).toThrow("An unexpected error occurred");
+    it("should throw error when no current session exists during refresh", async () => {
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(null);
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: "new-token" },
+        },
+      });
+
+      await expect(repository.refresh("refresh-token"))
+        .rejects.toThrow("No current session found during refresh");
+    });
+  });
+
+  describe("Check Session with Expired Tokens", () => {
+    it("should logout and return null when token is expired but no refresh token is present", async () => {
+      const expiredTime = Math.floor(Date.now() / 1000) - 3600;
+      const expiredToken = createMockJwt(expiredTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ accessToken: expiredToken })
+      );
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+
+    it("should attempt refresh when 401 occurs and refresh token is available", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+      const newAccessToken = createMockJwt(Math.floor(Date.now() / 1000) + 7200);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: validToken,
+          refreshToken: "refresh-123"
+        })
+      );
+
+      // Make the /auth/me request fail with 401 to trigger refresh attempt
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 401 }
+      });
+
+      // Mock the refresh endpoint to return a new token
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: newAccessToken },
+        },
+      });
+
+      const result = await repository.checkSession();
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/refresh-token", {
+        refreshToken: "refresh-123"
+      });
+      expect(result).toEqual({
+        accessToken: newAccessToken,
+        refreshToken: "refresh-123",
+        profile: undefined
+      });
+    });
+
+    it("should logout when 401 occurs and refresh token is not available", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ accessToken: validToken })
+      );
+
+      // Make the /auth/me request fail with 401
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 401 }
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+
+    it("should logout when token is expired and refresh attempt fails", async () => {
+      const expiredTime = Math.floor(Date.now() / 1000) - 3600;
+      const expiredToken = createMockJwt(expiredTime);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: expiredToken,
+          refreshToken: "refresh-123"
+        })
+      );
+
+      // Make the refresh call fail
+      mockAxiosInstance.post.mockRejectedValue({
+        response: { data: { message: "Invalid refresh token" } },
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+
+    it("should logout when 401 occurs and refresh attempt fails", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: validToken,
+          refreshToken: "refresh-123"
+        })
+      );
+
+      // Make the /auth/me request fail with 401 to trigger refresh
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 401 }
+      });
+
+      // Make the refresh call fail
+      mockAxiosInstance.post.mockRejectedValue({
+        response: { data: { message: "Invalid refresh token" } },
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+
+    it("should return null without logout when non-401 error occurs", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: validToken,
+          refreshToken: "refresh-123"  // Has refresh token but we'll trigger a non-401 error
+        })
+      );
+
+      // Make the /auth/me request fail with 500 (not 401)
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 500 }
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      // Should NOT logout for non-401 errors
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it("should return null without logout when non-axios error occurs", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: validToken,
+          refreshToken: "refresh-123"
+        })
+      );
+
+      // Make the /auth/me request fail with a non-axios error
+      mockAxiosInstance.get.mockRejectedValue(new Error("Network error"));
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      // Should NOT logout for non-axios errors
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it("should logout and return null when 401 occurs and no refresh token is available", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600; // Token not expired
+      const validToken = createMockJwt(futureTime);
+
+      const sessionData = JSON.stringify({
+        accessToken: validToken
+        // No refresh token
+      });
+
+      // Mock the first call to readSession (in checkSession method)
+      (mockStorage.getItem as jest.Mock).mockResolvedValueOnce(sessionData);
+      // Mock the second call to readSession (in the 401 handling logic)
+      (mockStorage.getItem as jest.Mock).mockResolvedValueOnce(sessionData);
+
+      // Make the /auth/me request fail with 401
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 401 }
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+
+    it("should return null without logout when 401 occurs and no session exists for refresh", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600; // Token not expired
+      const validToken = createMockJwt(futureTime);
+
+      const sessionData = JSON.stringify({
+        accessToken: validToken
+        // No refresh token
+      });
+
+      // Mock the first call to readSession - valid session
+      (mockStorage.getItem as jest.Mock).mockResolvedValueOnce(sessionData);
+      // Mock the second call to readSession during 401 handling - return null (no session)
+      (mockStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+
+      // Make the /auth/me request fail with 401
+      mockAxiosInstance.get.mockRejectedValue({
+        response: { status: 401 }
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      // Should not logout since there was no session when trying to refresh
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it("should cover final return path when 401 error has response and no refresh token", async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600; // Token not expired
+      const validToken = createMockJwt(futureTime);
+
+      const sessionData = JSON.stringify({
+        accessToken: validToken
+        // No refresh token
+      });
+
+      // Set up the storage mock
+      const mockGetItem = jest.fn();
+      mockGetItem.mockResolvedValueOnce(sessionData); // First readSession call
+      mockGetItem.mockResolvedValueOnce(sessionData); // Second readSession call in 401 handler
+      (mockStorage as any).getItem = mockGetItem;
+
+      // Make the /auth/me request fail with 401
+      mockAxiosInstance.get.mockRejectedValue({
+        response: {
+          status: 401,
+          data: { message: "Unauthorized" }
+        }
+      });
+
+      const result = await repository.checkSession();
+
+      expect(result).toBeNull();
+      expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
     });
   });
 });

@@ -19,9 +19,12 @@ import {
   AuthSession,
   ApiSuccessResponse,
   LoginResponseDTO,
+  RefreshRequestDTO,
+  RefreshResponseData,
   UserProfile,
   IStorage,
 } from "../types";
+import { handleApiError, withErrorHandling } from "../utils/errorHandler";
 
 const STORAGE_KEY = "user_session_token";
 
@@ -53,79 +56,74 @@ export class AuthRepository implements IAuthRepository {
     this.initializeInterceptors();
   }
 
-  async login(payload: LoginRequestDTO): Promise<AuthSession> {
-    try {
-      const { data } = await this.apiClient.post<
-        ApiSuccessResponse<LoginResponseDTO>
-      >("/auth/login", payload);
-      const session: AuthSession = {
-        accessToken: data.data.accessToken,
-        refreshToken: data.data.refreshToken,
-      };
-      await this.saveSession(session);
-      return session;
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  login = withErrorHandling(async (payload: LoginRequestDTO): Promise<AuthSession> => {
+    const { data } = await this.apiClient.post<
+      ApiSuccessResponse<LoginResponseDTO>
+    >("/auth/login", payload);
+    const session: AuthSession = {
+      accessToken: data.data.accessToken,
+      refreshToken: data.data.refreshToken,
+    };
+    await this.saveSession(session);
+    return session;
+  });
 
-  async register(payload: RegisterRequestDTO): Promise<void> {
-    try {
-      await this.apiClient.post("/auth/register", payload);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  register = withErrorHandling(async (payload: RegisterRequestDTO): Promise<void> => {
+    await this.apiClient.post("/auth/register", payload);
+  });
 
-  async requestPasswordReset(payload: RequestOtpDTO): Promise<void> {
-    try {
-      await this.apiClient.post("/auth/otp/request", payload);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  requestPasswordReset = withErrorHandling(async (payload: RequestOtpDTO): Promise<void> => {
+    await this.apiClient.post("/auth/otp/request", payload);
+  });
 
-  async verifyOtp(payload: VerifyOtpDTO): Promise<string> {
-    try {
-      const { data } = await this.apiClient.post<
-        ApiSuccessResponse<{ actionToken: string }>
-      >("/auth/otp/verify", payload);
-      return data.data.actionToken;
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  verifyOtp = withErrorHandling(async (payload: VerifyOtpDTO): Promise<string> => {
+    const { data } = await this.apiClient.post<
+      ApiSuccessResponse<{ actionToken: string }>
+    >("/auth/otp/verify", payload);
+    return data.data.actionToken;
+  });
 
-  async completeRegistration(
-    payload: CompleteRegistrationDTO
-  ): Promise<void> {
-    try {
-      await this.apiClient.post("/auth/register/complete", payload);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  completeRegistration = withErrorHandling(async (payload: CompleteRegistrationDTO): Promise<void> => {
+    await this.apiClient.post("/auth/register/complete", payload);
+  });
 
-  async completePasswordReset(
-    payload: CompletePasswordResetDTO
-  ): Promise<void> {
-    try {
-      await this.apiClient.post("/auth/password/reset/complete", payload);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
+  completePasswordReset = withErrorHandling(async (payload: CompletePasswordResetDTO): Promise<void> => {
+    await this.apiClient.post("/auth/password/reset/complete", payload);
+  });
 
   async checkSession(): Promise<AuthSession | null> {
+    // Step 1: Get the current session
+    const session = await this.readSession();
+    if (!session) return null;
+
+    // Step 2: Handle expired access token with refresh
+    if (this.isTokenExpired(session.accessToken)) {
+      return await this.handleExpiredSession(session);
+    }
+
+    // Step 3: Validate session with server
+    return await this.validateSessionWithServer(session);
+  }
+
+  private async handleExpiredSession(session: AuthSession): Promise<AuthSession | null> {
+    if (!session.refreshToken) {
+      // No refresh token, so clear session and return null
+      await this.logout();
+      return null;
+    }
+
     try {
-      const session = await this.readSession();
-      if (!session) return null;
+      // Attempt to refresh the session using the refresh token
+      return await this.refresh(session.refreshToken);
+    } catch (refreshError) {
+      // If refresh fails, logout and return null
+      await this.logout();
+      return null;
+    }
+  }
 
-      if (this.isTokenExpired(session.accessToken)) {
-        await this.logout();
-        return null;
-      }
-
+  private async validateSessionWithServer(session: AuthSession): Promise<AuthSession | null> {
+    try {
       const { data } = await this.apiClient.get<UserProfile>("/auth/me", {
         headers: { Authorization: `Bearer ${session.accessToken}` },
       });
@@ -137,12 +135,57 @@ export class AuthRepository implements IAuthRepository {
       if (axios.isAxiosError(error)) {
         const response = error.response;
         if (response && response.status === 401) {
-          await this.logout();
+          // Server rejected the token, try to refresh
+          return await this.handle401Error();
         }
       }
+      // For other errors, return null without logging out
       return null;
     }
   }
+
+  private async handle401Error(): Promise<AuthSession | null> {
+    const session = await this.readSession();
+    if (!session || !session.refreshToken) {
+      // No session or no refresh token, just return null
+      // Don't logout if there was no session to begin with
+      if (session) {
+        await this.logout();
+      }
+      return null;
+    }
+
+    try {
+      // Attempt to refresh using the available refresh token
+      return await this.refresh(session.refreshToken);
+    } catch (refreshError) {
+      // If refresh fails, logout and return null
+      await this.logout();
+      return null;
+    }
+  }
+
+  refresh = withErrorHandling(async (refreshToken: string): Promise<AuthSession> => {
+    const { data } = await this.apiClient.post<
+      ApiSuccessResponse<RefreshResponseData>
+    >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
+
+    // Get the current session to preserve other data
+    const currentSession = await this.readSession();
+    if (!currentSession) {
+      throw new Error("No current session found during refresh");
+    }
+
+    // Create new session with fresh access token but keep existing refresh token and profile
+    const refreshedSession: AuthSession = {
+      accessToken: data.data.accessToken,
+      refreshToken: currentSession.refreshToken, // Keep the existing refresh token
+      profile: currentSession.profile // Keep the existing profile
+    };
+
+    await this.saveSession(refreshedSession);
+    return refreshedSession;
+  });
 
   async logout(): Promise<void> {
     await this.storage.removeItem(STORAGE_KEY);
@@ -219,28 +262,6 @@ export class AuthRepository implements IAuthRepository {
     }
   }
 
-  private handleError(error: any): never {
-    if (axios.isAxiosError(error)) {
-      const response = error.response;
-      const responseData = response ? response.data : undefined;
-      if (
-        responseData &&
-        typeof responseData === "object" &&
-        typeof (responseData as any).message === "string" &&
-        (responseData as any).message
-      ) {
-        throw new Error((responseData as any).message);
-      }
-
-      if (typeof error.message === "string" && error.message) {
-        throw new Error(error.message);
-      }
-
-      throw new Error("An unexpected error occurred");
-    }
-
-    throw new Error("An unexpected error occurred");
-  }
 
   private initializeInterceptors() {
     this.apiClient.interceptors.response.use(

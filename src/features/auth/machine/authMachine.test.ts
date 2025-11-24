@@ -38,6 +38,7 @@ const mockRepo: IAuthRepository = {
   completeRegistration: jest.fn(),
   completePasswordReset: jest.fn(),
   checkSession: jest.fn(),
+  refresh: jest.fn(),
   logout: jest.fn(),
 };
 
