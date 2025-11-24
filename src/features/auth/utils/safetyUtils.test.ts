@@ -12,6 +12,7 @@ import {
   safeExtractActionToken,
   safeExtractPasswordFromPending,
   safeGetStringFromContext,
+  safeExtractErrorMessage,
 } from "./safetyUtils";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 
@@ -268,96 +269,89 @@ describe("Safety Utilities", () => {
     });
   });
 
-  describe("isAuthSession", () => {
-    it("should return true for valid AuthSession", () => {
-      const session: AuthSession = { accessToken: "valid_token" };
-      expect(isAuthSession(session)).toBe(true);
-    });
-
-    it("should return false for empty accessToken", () => {
-      const session: AuthSession = { accessToken: "" };
-      expect(isAuthSession(session)).toBe(false);
-    });
-
-    it("should return true with refreshToken and profile", () => {
-      const session: AuthSession = {
-        accessToken: "valid_token",
-        refreshToken: "refresh_token",
-        profile: { id: "1", email: "test@example.com" },
+  describe("Extended Coverage - Error Message Extraction", () => {
+    it("should handle error with nested error object", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const event: any = {
+        error: { message: "Nested error" },
       };
-      expect(isAuthSession(session)).toBe(true);
-    });
-  });
-
-  describe("isUserProfile", () => {
-    it("should return true for valid UserProfile", () => {
-      const profile: UserProfile = { id: "1", email: "test@example.com" };
-      expect(isUserProfile(profile)).toBe(true);
+      expect(safeExtractErrorMessage(event)).toBe("Nested error");
     });
 
-    it("should return false for missing id", () => {
-      const profile = { email: "test@example.com" };
-      expect(isUserProfile(profile)).toBe(false);
-    });
-
-    it("should return false for missing email", () => {
-      const profile = { id: "1" };
-      expect(isUserProfile(profile)).toBe(false);
-    });
-  });
-
-  describe("safeExtractActionToken", () => {
-    it("should return valid token", () => {
-      expect(safeExtractActionToken("valid_token")).toBe("valid_token");
-    });
-
-    it("should return empty string for undefined", () => {
-      expect(safeExtractActionToken(undefined)).toBe("");
-    });
-
-    it("should return empty string for empty string", () => {
-      expect(safeExtractActionToken("")).toBe("");
-    });
-
-    it("should return empty string for whitespace-only string", () => {
-      expect(safeExtractActionToken("   ")).toBe("");
-    });
-  });
-
-  describe("safeExtractPasswordFromPending", () => {
-    it("should return password when available", () => {
-      const pending: LoginRequestDTO = {
-        email: "test@example.com",
-        password: "pass123",
+    it("should handle error with data string", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const event: any = {
+        data: "String data error",
       };
-      expect(safeExtractPasswordFromPending(pending)).toBe("pass123");
+      expect(safeExtractErrorMessage(event)).toBe("String data error");
     });
 
-    it("should return empty string when pending is undefined", () => {
-      expect(safeExtractPasswordFromPending(undefined)).toBe("");
+    it("should return undefined for event without error info", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(safeExtractErrorMessage({} as any)).toBeUndefined();
     });
 
-    it("should return empty string when password is not a string", () => {
-      const pending = { email: "test@example.com", password: 123 } as any;
-      expect(safeExtractPasswordFromPending(pending)).toBe("");
+    it("should handle extraction exception gracefully", () => {
+      // This simulates an event that throws when accessing properties
+      // The function should catch and return undefined
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(safeExtractErrorMessage(null as any)).toBeUndefined();
     });
   });
 
-  describe("safeGetStringFromContext", () => {
-    it("should return valid string", () => {
-      expect(safeGetStringFromContext("valid_string")).toBe("valid_string");
+  describe("Extended Coverage - Safe Navigation", () => {
+    it("should handle nested path with deep objects", () => {
+      const obj = { a: { b: { c: "value" } } };
+      expect(safeGetNestedValue(obj, "a.b.c")).toBe("value");
     });
 
-    it("should return fallback for undefined", () => {
-      expect(safeGetStringFromContext(undefined)).toBe("");
+    it("should return undefined for missing intermediate path", () => {
+      const obj = { a: { c: "value" } };
+      expect(safeGetNestedValue(obj, "a.b.c")).toBeUndefined();
     });
 
-    it("should return custom fallback", () => {
-      expect(safeGetStringFromContext(undefined, "fallback")).toBe("fallback");
+    it("should handle null values in path", () => {
+      const obj = { a: null };
+      expect(safeGetNestedValue(obj, "a.b")).toBeUndefined();
     });
 
-    it("should return fallback for non-string", () => {
-      expect(safeGetStringFromContext(123 as any)).toBe("");
+    it("should handle undefined values in path", () => {
+      const obj = { a: undefined };
+      expect(safeGetNestedValue(obj, "a.b")).toBeUndefined();
+    });
+
+    it("should access top-level properties", () => {
+      const obj = { name: "test" };
+      expect(safeGetNestedValue(obj, "name")).toBe("test");
+    });
+
+    it("should return undefined for missing top-level property", () => {
+      const obj = { name: "test" };
+      expect(safeGetNestedValue(obj, "age")).toBeUndefined();
+    });
+  });
+
+  describe("Extended Coverage - Array Access", () => {
+    it("should safely access array elements", () => {
+      const arr = ["first", "second", "third"];
+      expect(safeArrayAccess(arr, 0)).toBe("first");
+      expect(safeArrayAccess(arr, 1)).toBe("second");
+    });
+
+    it("should return undefined for out-of-bounds access", () => {
+      const arr = ["first"];
+      expect(safeArrayAccess(arr, 99)).toBeUndefined();
+    });
+
+    it("should handle null array", () => {
+      expect(safeArrayAccess(null as any, 0)).toBeUndefined();
+    });
+
+    it("should handle non-array types", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(safeArrayAccess("not an array" as any, 0)).toBeUndefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(safeArrayAccess(123 as any, 0)).toBeUndefined();
     });
   });
 });

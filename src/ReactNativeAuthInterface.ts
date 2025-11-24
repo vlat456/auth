@@ -58,7 +58,7 @@ export class ReactNativeAuthInterface {
    * Complete password reset
    */
   async completePasswordReset(
-    payload: CompletePasswordResetDTO
+    payload: CompletePasswordResetDTO,
   ): Promise<void> {
     return await this.authRepository.completePasswordReset(payload);
   }

@@ -32,7 +32,7 @@ import {
  * Returns non-empty password if available, otherwise empty string.
  */
 export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO
+  pending?: LoginRequestDTO,
 ): string => {
   if (
     pending &&
@@ -50,7 +50,7 @@ export const resolveRegistrationPassword = (
  * This prevents silent failures when credentials are lost during flow.
  */
 export const hasValidCredentials = (
-  credentials?: LoginRequestDTO
+  credentials?: LoginRequestDTO,
 ): credentials is LoginRequestDTO => {
   return (
     credentials !== undefined &&
@@ -100,12 +100,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       registerUser: fromPromise(
         async ({ input }: { input: RegisterRequestDTO }) => {
           return await authRepository.register(input);
-        }
+        },
       ),
       requestPasswordReset: fromPromise(
         async ({ input }: { input: RequestOtpDTO }) => {
           return await authRepository.requestPasswordReset(input);
-        }
+        },
       ),
       verifyOtp: fromPromise(async ({ input }: { input: VerifyOtpDTO }) => {
         return await authRepository.verifyOtp(input);
@@ -113,12 +113,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       completeRegistration: fromPromise(
         async ({ input }: { input: CompleteRegistrationDTO }) => {
           return await authRepository.completeRegistration(input);
-        }
+        },
       ),
       completePasswordReset: fromPromise(
         async ({ input }: { input: CompletePasswordResetDTO }) => {
           return await authRepository.completePasswordReset(input);
-        }
+        },
       ),
       logoutUser: fromPromise(async () => {
         return await authRepository.logout();
@@ -344,7 +344,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                   input: ({ context }) => ({
                     actionToken: context.registrationActionToken ?? "",
                     newPassword: resolveRegistrationPassword(
-                      context.pendingCredentials
+                      context.pendingCredentials,
                     ),
                   }),
                   onDone: "loggingIn",

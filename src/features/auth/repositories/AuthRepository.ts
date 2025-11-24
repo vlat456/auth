@@ -49,7 +49,7 @@ export class AuthRepository implements IAuthRepository {
 
   constructor(
     storage: IStorage,
-    baseURL: string = "https://api.astra.example.com"
+    baseURL: string = "https://api.astra.example.com",
   ) {
     this.storage = storage;
     this.apiClient = axios.create({
@@ -90,16 +90,16 @@ export class AuthRepository implements IAuthRepository {
 
       const accessToken = safeGetNestedValue<string>(
         dataPayload,
-        "accessToken"
+        "accessToken",
       );
       const refreshToken = safeGetNestedValue<string>(
         dataPayload,
-        "refreshToken"
+        "refreshToken",
       );
 
       if (!accessToken || typeof accessToken !== "string") {
         throw new Error(
-          "Invalid login response: accessToken is not a valid string"
+          "Invalid login response: accessToken is not a valid string",
         );
       }
 
@@ -109,19 +109,19 @@ export class AuthRepository implements IAuthRepository {
       };
       await this.saveSession(session);
       return session;
-    }
+    },
   );
 
   register = withErrorHandling(
     async (payload: RegisterRequestDTO): Promise<void> => {
       await this.apiClient.post("/auth/register", payload);
-    }
+    },
   );
 
   requestPasswordReset = withErrorHandling(
     async (payload: RequestOtpDTO): Promise<void> => {
       await this.apiClient.post("/auth/otp/request", payload);
-    }
+    },
   );
 
   verifyOtp = withErrorHandling(
@@ -130,19 +130,19 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<{ actionToken: string }>
       >("/auth/otp/verify", payload);
       return data.data.actionToken;
-    }
+    },
   );
 
   completeRegistration = withErrorHandling(
     async (payload: CompleteRegistrationDTO): Promise<void> => {
       await this.apiClient.post("/auth/register/complete", payload);
-    }
+    },
   );
 
   completePasswordReset = withErrorHandling(
     async (payload: CompletePasswordResetDTO): Promise<void> => {
       await this.apiClient.post("/auth/password/reset/complete", payload);
-    }
+    },
   );
 
   async checkSession(): Promise<AuthSession | null> {
@@ -160,7 +160,7 @@ export class AuthRepository implements IAuthRepository {
   }
 
   private async handleExpiredSession(
-    session: AuthSession
+    session: AuthSession,
   ): Promise<AuthSession | null> {
     if (!session.refreshToken) {
       // No refresh token, so clear session and return null
@@ -180,7 +180,7 @@ export class AuthRepository implements IAuthRepository {
   }
 
   private async validateSessionWithServer(
-    session: AuthSession
+    session: AuthSession,
   ): Promise<AuthSession | null> {
     try {
       const response = await this.apiClient.get<UserProfile>("/auth/me", {
@@ -273,17 +273,17 @@ export class AuthRepository implements IAuthRepository {
         ])
       ) {
         throw new Error(
-          "Invalid refresh response: missing accessToken in data"
+          "Invalid refresh response: missing accessToken in data",
         );
       }
 
       const newAccessToken = safeGetNestedValue<string>(
         dataPayload,
-        "accessToken"
+        "accessToken",
       );
       if (!newAccessToken || typeof newAccessToken !== "string") {
         throw new Error(
-          "Invalid refresh response: accessToken is not a valid string"
+          "Invalid refresh response: accessToken is not a valid string",
         );
       }
 
@@ -300,7 +300,7 @@ export class AuthRepository implements IAuthRepository {
           "/auth/me",
           {
             headers: { Authorization: `Bearer ${newAccessToken}` },
-          }
+          },
         );
 
         const userData = profileResponse.data;
@@ -312,7 +312,7 @@ export class AuthRepository implements IAuthRepository {
         // The session can still be valid even if profile fetch fails
         console.warn(
           "Profile refresh failed during token refresh:",
-          profileError
+          profileError,
         );
         // Keep the existing profile as fallback
         freshProfile = currentSession.profile;
@@ -327,7 +327,7 @@ export class AuthRepository implements IAuthRepository {
 
       await this.saveSession(refreshedSession);
       return refreshedSession;
-    }
+    },
   );
 
   async logout(): Promise<void> {
@@ -526,7 +526,7 @@ export class AuthRepository implements IAuthRepository {
           return this.apiClient(config);
         }
         return Promise.reject(error);
-      }
+      },
     );
   }
 }
