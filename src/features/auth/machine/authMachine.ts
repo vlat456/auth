@@ -15,9 +15,24 @@ import {
   CompletePasswordResetDTO,
   IAuthRepository,
 } from "../types";
+import {
+  safeExtractSessionOutput,
+  safeExtractRegisterPayload,
+  safeExtractOtpRequestPayload,
+  safeExtractResetPasswordPayload,
+  safeExtractEmail,
+  safeExtractOtp,
+  safeExtractLoginPayload,
+  safeExtractErrorMessage,
+  safeExtractOutput,
+} from "../utils/safetyUtils";
 
+/**
+ * Safely extracts password from pending credentials.
+ * Returns non-empty password if available, otherwise empty string.
+ */
 export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO,
+  pending?: LoginRequestDTO
 ): string => {
   if (
     pending &&
@@ -27,6 +42,23 @@ export const resolveRegistrationPassword = (
     return pending.password;
   }
   return "";
+};
+
+/**
+ * Validates that credentials are available for login.
+ * Returns true only if both email and password are non-empty strings.
+ * This prevents silent failures when credentials are lost during flow.
+ */
+export const hasValidCredentials = (
+  credentials?: LoginRequestDTO
+): credentials is LoginRequestDTO => {
+  return (
+    credentials !== undefined &&
+    typeof credentials.email === "string" &&
+    credentials.email.length > 0 &&
+    typeof credentials.password === "string" &&
+    credentials.password.length > 0
+  );
 };
 
 export type AuthContext = {
@@ -62,17 +94,18 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         return await authRepository.checkSession();
       }),
       loginUser: fromPromise(async ({ input }: { input: LoginRequestDTO }) => {
+        // DEBUG: log input to verify payload extraction
         return await authRepository.login(input);
       }),
       registerUser: fromPromise(
         async ({ input }: { input: RegisterRequestDTO }) => {
           return await authRepository.register(input);
-        },
+        }
       ),
       requestPasswordReset: fromPromise(
         async ({ input }: { input: RequestOtpDTO }) => {
           return await authRepository.requestPasswordReset(input);
-        },
+        }
       ),
       verifyOtp: fromPromise(async ({ input }: { input: VerifyOtpDTO }) => {
         return await authRepository.verifyOtp(input);
@@ -80,12 +113,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       completeRegistration: fromPromise(
         async ({ input }: { input: CompleteRegistrationDTO }) => {
           return await authRepository.completeRegistration(input);
-        },
+        }
       ),
       completePasswordReset: fromPromise(
         async ({ input }: { input: CompletePasswordResetDTO }) => {
           return await authRepository.completePasswordReset(input);
-        },
+        }
       ),
       logoutUser: fromPromise(async () => {
         return await authRepository.logout();
@@ -93,15 +126,20 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
     },
     actions: {
       setSession: assign({
-        session: ({ event }) => (event as any).output as AuthSession,
+        session: ({ event }) => {
+          // SECURITY: Use safe extraction instead of (event as any)
+          const output = safeExtractSessionOutput(event);
+          return output ?? null;
+        },
         error: null,
       }),
       setError: assign({
-        error: ({ event }) => ({
-          message:
-            (event as any).error?.message ||
-            "An unexpected error occurred",
-        }),
+        error: ({ event }) => {
+          // SECURITY: Safely extract error message
+          const msg =
+            safeExtractErrorMessage(event) || "An unexpected error occurred";
+          return { message: msg };
+        },
       }),
       clearError: assign({
         error: null,
@@ -110,7 +148,10 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         session: null,
       }),
       setEmailFromPayload: assign({
-        email: ({ event }) => (event as any).payload?.email,
+        email: ({ event }) => {
+          // SECURITY: Use safe extraction instead of (event as any)
+          return safeExtractEmail(event);
+        },
       }),
       clearForgotPasswordContext: assign({
         email: undefined,
@@ -123,22 +164,41 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         pendingCredentials: undefined,
       }),
       setPendingCredentials: assign({
-        pendingCredentials: ({ event }) => (event as any).payload,
+        pendingCredentials: ({ event }) => {
+          // SECURITY: Validate payload before assigning
+          const payload = safeExtractRegisterPayload(event);
+          return payload as LoginRequestDTO | undefined;
+        },
       }),
       clearPendingCredentials: assign({
         pendingCredentials: undefined,
       }),
       setRegistrationActionToken: assign({
-        registrationActionToken: ({ event }) => (event as any).output,
+        registrationActionToken: ({ event }) => {
+          // SECURITY: Safely extract action token from output
+          const output = safeExtractOutput<string>(event);
+          return typeof output === "string" ? output : undefined;
+        },
       }),
       setResetActionToken: assign({
-        resetActionToken: ({ event }) => (event as any).output,
+        resetActionToken: ({ event }) => {
+          // SECURITY: Safely extract action token from output
+          const output = safeExtractOutput<string>(event);
+          return typeof output === "string" ? output : undefined;
+        },
       }),
       setPendingCredentialsFromNewPassword: assign({
-        pendingCredentials: ({ context, event }) => ({
-          email: context.email ?? "",
-          password: (event as any).payload.newPassword,
-        }),
+        pendingCredentials: ({ context, event }) => {
+          // SECURITY: Use safe extraction instead of (event as any)
+          const resetPayload = safeExtractResetPasswordPayload(event);
+          if (!resetPayload) {
+            return undefined;
+          }
+          return {
+            email: context.email ?? "",
+            password: resetPayload.newPassword,
+          };
+        },
       }),
     },
   }).createMachine({
@@ -190,7 +250,10 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
                 invoke: {
                   src: "loginUser",
-                  input: ({ event }) => (event as any).payload,
+                  input: ({ event }) => {
+                    const payload = safeExtractLoginPayload(event);
+                    return payload || { email: "", password: "" };
+                  },
                   onDone: {
                     target: "#auth.authorized",
                     actions: ["setSession", "clearPendingCredentials"],
@@ -234,7 +297,11 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
                 invoke: {
                   src: "registerUser",
-                  input: ({ event }) => (event as any).payload,
+                  input: ({ event }) => {
+                    // SECURITY: Validate register payload before use
+                    const payload = safeExtractRegisterPayload(event);
+                    return payload || { email: "", password: "" };
+                  },
                   onDone: "verifyOtp",
                   onError: {
                     target: "form",
@@ -259,7 +326,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                   src: "verifyOtp",
                   input: ({ context, event }) => ({
                     email: context.email ?? "",
-                    otp: (event as any).payload.otp,
+                    otp: safeExtractOtp(event) ?? "",
                   }),
                   onDone: {
                     target: "completingRegistration",
@@ -277,7 +344,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                   input: ({ context }) => ({
                     actionToken: context.registrationActionToken ?? "",
                     newPassword: resolveRegistrationPassword(
-                      context.pendingCredentials,
+                      context.pendingCredentials
                     ),
                   }),
                   onDone: "loggingIn",
@@ -290,7 +357,16 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               loggingIn: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
+                  input: ({ context }) => {
+                    // SAFETY: If credentials are missing, provide a safe fallback
+                    // This prevents silent failures but login will fail with proper error
+                    if (hasValidCredentials(context.pendingCredentials)) {
+                      return context.pendingCredentials;
+                    }
+                    // Missing credentials - this shouldn't happen in normal flow
+                    // but if it does, provide empty credentials to let server reject
+                    return { email: "", password: "" };
+                  },
                   onDone: {
                     target: "#auth.authorized",
                     actions: [
@@ -335,7 +411,10 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
                 invoke: {
                   src: "requestPasswordReset",
-                  input: ({ event }) => (event as any).payload,
+                  input: ({ event }) => {
+                    const payload = safeExtractOtpRequestPayload(event);
+                    return payload || { email: "" };
+                  },
                   onDone: "verifyOtp",
                   onError: {
                     target: "idle",
@@ -360,7 +439,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                   src: "verifyOtp",
                   input: ({ context, event }) => ({
                     email: context.email ?? "",
-                    otp: (event as any).payload.otp,
+                    otp: safeExtractOtp(event) ?? "",
                   }),
                   onDone: {
                     target: "resetPassword",
@@ -398,7 +477,16 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               loggingInAfterReset: {
                 invoke: {
                   src: "loginUser",
-                  input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
+                  input: ({ context }) => {
+                    // SAFETY: If credentials are missing, provide a safe fallback
+                    // This prevents silent failures but login will fail with proper error
+                    if (hasValidCredentials(context.pendingCredentials)) {
+                      return context.pendingCredentials;
+                    }
+                    // Missing credentials - this shouldn't happen in normal flow
+                    // but if it does, provide empty credentials to let server reject
+                    return { email: "", password: "" };
+                  },
                   onDone: {
                     target: "#auth.authorized",
                     actions: [

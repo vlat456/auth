@@ -17,7 +17,13 @@ const waitForState = <T extends AnyActor>(
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       subscription.unsubscribe();
-      reject(new Error(`Timeout waiting for state: ${JSON.stringify(actor.getSnapshot().value)}`));
+      reject(
+        new Error(
+          `Timeout waiting for state: ${JSON.stringify(
+            actor.getSnapshot().value
+          )}`
+        )
+      );
     }, 5000); // 5-second timeout
 
     const subscription = actor.subscribe((snapshot) => {
@@ -39,6 +45,7 @@ const mockRepo: IAuthRepository = {
   completePasswordReset: jest.fn(),
   checkSession: jest.fn(),
   refresh: jest.fn(),
+  refreshProfile: jest.fn(),
   logout: jest.fn(),
 };
 
@@ -99,7 +106,8 @@ describe("Auth Machine", () => {
       const p1 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { login: "idle" } }) && s.context.error !== null
+          s.matches({ unauthorized: { login: "idle" } }) &&
+          s.context.error !== null
       );
       actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
       await p1;
@@ -171,8 +179,58 @@ describe("Auth Machine", () => {
         actionToken: "registration-token",
         newPassword: "b",
       });
-      expect(mockRepo.login).toHaveBeenCalledWith({ email: "a", password: "b" });
+      expect(mockRepo.login).toHaveBeenCalledWith({
+        email: "a",
+        password: "b",
+      });
       expect(actor.getSnapshot().context.session).toEqual(mockSession);
+    });
+
+    it("should handle missing pending credentials gracefully after registration", async () => {
+      const mockSession = { accessToken: "xyz" };
+      (mockRepo.register as jest.Mock).mockResolvedValue(undefined);
+      (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("registration-token");
+      (mockRepo.completeRegistration as jest.Mock).mockResolvedValue(undefined);
+      (mockRepo.login as jest.Mock).mockRejectedValue(
+        new Error("Invalid credentials")
+      );
+
+      const actor = createTestActor();
+      await waitForState(actor, (s) => s.matches("unauthorized"));
+
+      const toRegister = waitForState(actor, (s) =>
+        s.matches({ unauthorized: { register: "form" } })
+      );
+      actor.send({ type: "GO_TO_REGISTER" });
+      await toRegister;
+
+      const toVerifyOtp = waitForState(actor, (s) =>
+        s.matches({ unauthorized: { register: "verifyOtp" } })
+      );
+      actor.send({
+        type: "REGISTER",
+        payload: { email: "test@test.com", password: "validpass" },
+      });
+      await toVerifyOtp;
+
+      // Simulate credentials being lost
+      (actor.getSnapshot().context as any).pendingCredentials = undefined;
+
+      const backToLogin = waitForState(
+        actor,
+        (s) => s.matches({ unauthorized: "login" }) && s.context.error !== null
+      );
+      actor.send({ type: "VERIFY_OTP", payload: { otp: "654321" } });
+      await backToLogin;
+
+      // Should attempt login with empty credentials (will fail with proper error)
+      expect(mockRepo.login).toHaveBeenCalledWith({
+        email: "",
+        password: "",
+      });
+      expect(actor.getSnapshot().context.error?.message).toBe(
+        "Invalid credentials"
+      );
     });
 
     it("should return to form with an error when register fails", async () => {
@@ -200,7 +258,9 @@ describe("Auth Machine", () => {
 
       const snapshot = actor.getSnapshot();
       expect(snapshot.context.error?.message).toBe("Exists");
-      expect(snapshot.matches({ unauthorized: { register: "form" } })).toBe(true);
+      expect(snapshot.matches({ unauthorized: { register: "form" } })).toBe(
+        true
+      );
     });
 
     it("should show default error when register rejects without payload", async () => {
@@ -271,7 +331,9 @@ describe("Auth Machine", () => {
       actor.send({ type: "VERIFY_OTP", payload: { otp: "000000" } });
       await Promise.resolve();
 
-      expect(actor.getSnapshot().matches({ unauthorized: { register: "verifyOtp" } })).toBe(true);
+      expect(
+        actor.getSnapshot().matches({ unauthorized: { register: "verifyOtp" } })
+      ).toBe(true);
       expect(mockRepo.verifyOtp).not.toHaveBeenCalled();
     });
 
@@ -296,7 +358,9 @@ describe("Auth Machine", () => {
         password: null,
       };
 
-      const backToLogin = waitForState(actor, (s) => s.matches({ unauthorized: "login" }));
+      const backToLogin = waitForState(actor, (s) =>
+        s.matches({ unauthorized: "login" })
+      );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await backToLogin;
 
@@ -344,7 +408,9 @@ describe("Auth Machine", () => {
 
     it("should handle OTP verification failure", async () => {
       (mockRepo.requestPasswordReset as jest.Mock).mockResolvedValue(undefined);
-      (mockRepo.verifyOtp as jest.Mock).mockRejectedValue(new Error("Invalid OTP"));
+      (mockRepo.verifyOtp as jest.Mock).mockRejectedValue(
+        new Error("Invalid OTP")
+      );
 
       const actor = createTestActor();
       await waitForState(actor, (s) => s.matches("unauthorized"));
@@ -386,7 +452,9 @@ describe("Auth Machine", () => {
       const mockSession = { accessToken: "1" };
       (mockRepo.requestPasswordReset as jest.Mock).mockResolvedValue(undefined);
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("action-token");
-      (mockRepo.completePasswordReset as jest.Mock).mockResolvedValue(undefined);
+      (mockRepo.completePasswordReset as jest.Mock).mockResolvedValue(
+        undefined
+      );
       (mockRepo.login as jest.Mock).mockResolvedValue(mockSession);
 
       const actor = createTestActor();
@@ -456,7 +524,10 @@ describe("Auth Machine", () => {
         s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
-      actor.send({ type: "FORGOT_PASSWORD", payload: { email: "test@test.com" } });
+      actor.send({
+        type: "FORGOT_PASSWORD",
+        payload: { email: "test@test.com" },
+      });
       await toVerify;
 
       (actor.getSnapshot().context as any).email = undefined;
@@ -464,9 +535,11 @@ describe("Auth Machine", () => {
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await Promise.resolve();
 
-      expect(actor.getSnapshot().matches({ unauthorized: { forgotPassword: "verifyOtp" } })).toBe(
-        true
-      );
+      expect(
+        actor
+          .getSnapshot()
+          .matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+      ).toBe(true);
       expect(mockRepo.verifyOtp).not.toHaveBeenCalled();
     });
 
@@ -481,7 +554,10 @@ describe("Auth Machine", () => {
         s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
-      actor.send({ type: "FORGOT_PASSWORD", payload: { email: "test@test.com" } });
+      actor.send({
+        type: "FORGOT_PASSWORD",
+        payload: { email: "test@test.com" },
+      });
       await toVerify;
 
       const toReset = waitForState(actor, (s) =>
@@ -492,11 +568,16 @@ describe("Auth Machine", () => {
 
       (actor.getSnapshot().context as any).resetActionToken = undefined;
 
-      actor.send({ type: "RESET_PASSWORD", payload: { newPassword: "Secret123!" } });
+      actor.send({
+        type: "RESET_PASSWORD",
+        payload: { newPassword: "Secret123!" },
+      });
       await Promise.resolve();
 
       expect(
-        actor.getSnapshot().matches({ unauthorized: { forgotPassword: "resetPassword" } })
+        actor
+          .getSnapshot()
+          .matches({ unauthorized: { forgotPassword: "resetPassword" } })
       ).toBe(true);
       expect(mockRepo.completePasswordReset).not.toHaveBeenCalled();
     });
@@ -540,14 +621,18 @@ describe("Auth Machine", () => {
 
   describe("Branch Coverage Tests", () => {
     it("should handle checkSession error", async () => {
-      (mockRepo.checkSession as jest.Mock).mockRejectedValue(new Error("Network error"));
+      (mockRepo.checkSession as jest.Mock).mockRejectedValue(
+        new Error("Network error")
+      );
 
       const actor = createTestActor();
       await waitForState(actor, (s) => s.matches("unauthorized"));
 
       // The error might not be set on the context during checkSession error
       // Just ensure it transitions to unauthorized as expected
-      expect(actor.getSnapshot().value).toEqual({ unauthorized: { login: "idle" }});
+      expect(actor.getSnapshot().value).toEqual({
+        unauthorized: { login: "idle" },
+      });
     });
 
     it("should handle error in login with null error object", async () => {
@@ -567,7 +652,9 @@ describe("Auth Machine", () => {
       actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
       await p1;
 
-      expect(actor.getSnapshot().context.error?.message).toBe("An unexpected error occurred");
+      expect(actor.getSnapshot().context.error?.message).toBe(
+        "An unexpected error occurred"
+      );
     });
 
     it("should handle error in register with null error object", async () => {
@@ -597,7 +684,9 @@ describe("Auth Machine", () => {
       });
       await backToForm;
 
-      expect(actor.getSnapshot().context.error?.message).toBe("An unexpected error occurred");
+      expect(actor.getSnapshot().context.error?.message).toBe(
+        "An unexpected error occurred"
+      );
     });
   });
 });
@@ -613,5 +702,71 @@ describe("resolveRegistrationPassword", () => {
     expect(resolveRegistrationPassword({ email: "a", password: "" })).toBe("");
     expect(resolveRegistrationPassword({ email: "a" } as any)).toBe("");
     expect(resolveRegistrationPassword(undefined)).toBe("");
+  });
+});
+
+describe("hasValidCredentials", () => {
+  it("returns true when both email and password are non-empty strings", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(
+      hasValidCredentials({ email: "test@test.com", password: "password123" })
+    ).toBe(true);
+  });
+
+  it("returns false when credentials are undefined", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(hasValidCredentials(undefined)).toBe(false);
+  });
+
+  it("returns false when email is missing", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(hasValidCredentials({ password: "password123" } as any)).toBe(false);
+  });
+
+  it("returns false when email is empty string", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(hasValidCredentials({ email: "", password: "password123" })).toBe(
+      false
+    );
+  });
+
+  it("returns false when password is missing", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(hasValidCredentials({ email: "test@test.com" } as any)).toBe(false);
+  });
+
+  it("returns false when password is empty string", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(hasValidCredentials({ email: "test@test.com", password: "" })).toBe(
+      false
+    );
+  });
+
+  it("returns false when email is not a string", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(
+      hasValidCredentials({
+        email: 123,
+        password: "password123",
+      } as any)
+    ).toBe(false);
+  });
+
+  it("returns false when password is not a string", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { hasValidCredentials } = require("./authMachine");
+    expect(
+      hasValidCredentials({
+        email: "test@test.com",
+        password: 123,
+      } as any)
+    ).toBe(false);
   });
 });

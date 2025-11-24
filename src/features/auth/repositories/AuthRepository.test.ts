@@ -296,7 +296,9 @@ describe("AuthRepository", () => {
       const validToken = createMockJwt(futureTime);
 
       (mockStorage.getItem as jest.Mock).mockResolvedValue(validToken);
-      mockAxiosInstance.get.mockResolvedValue({ data: { id: "1", email: "a" } });
+      mockAxiosInstance.get.mockResolvedValue({
+        data: { id: "1", email: "a" },
+      });
 
       const result = await repository.checkSession();
       expect(result?.accessToken).toBe(validToken);
@@ -330,10 +332,9 @@ describe("AuthRepository", () => {
 
       await repository.requestPasswordReset({ email: "reset@test.com" });
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
-        "/auth/otp/request",
-        { email: "reset@test.com" }
-      );
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/otp/request", {
+        email: "reset@test.com",
+      });
     });
 
     it("should throw when OTP request fails", async () => {
@@ -451,12 +452,91 @@ describe("AuthRepository", () => {
     });
   });
 
-
   // ... include remaining existing tests (Retry logic, Logout, etc.) ...
   describe("Logout", () => {
     it("should remove token from storage", async () => {
       await repository.logout();
       expect(mockStorage.removeItem).toHaveBeenCalledWith("user_session_token");
+    });
+  });
+
+  describe("Refresh Profile", () => {
+    it("should fetch and update user profile data", async () => {
+      const token = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+      const oldProfile = { id: "1", email: "old@test.com" };
+      const freshProfile = {
+        id: "1",
+        email: "updated@test.com",
+        name: "Updated",
+      };
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          accessToken: token,
+          profile: oldProfile,
+        })
+      );
+
+      mockAxiosInstance.get.mockResolvedValue({ data: freshProfile });
+
+      const result = await repository.refreshProfile();
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(result).toEqual({
+        accessToken: token,
+        refreshToken: undefined,
+        profile: freshProfile,
+      });
+
+      expect(mockStorage.setItem).toHaveBeenCalledWith(
+        "user_session_token",
+        JSON.stringify({
+          accessToken: token,
+          refreshToken: undefined,
+          profile: freshProfile,
+        })
+      );
+    });
+
+    it("should return null when no session exists", async () => {
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      const result = await repository.refreshProfile();
+
+      expect(result).toBeNull();
+      expect(mockAxiosInstance.get).not.toHaveBeenCalled();
+    });
+
+    it("should return null when profile fetch fails", async () => {
+      const token = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ accessToken: token })
+      );
+
+      mockAxiosInstance.get.mockRejectedValue({ response: { status: 500 } });
+
+      const result = await repository.refreshProfile();
+
+      expect(result).toBeNull();
+      expect(mockAxiosInstance.get).toHaveBeenCalled();
+    });
+
+    it("should return null when profile data is invalid", async () => {
+      const token = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ accessToken: token })
+      );
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { name: "John" } }); // Missing id and email
+
+      const result = await repository.refreshProfile();
+
+      expect(result).toBeNull();
     });
   });
 
@@ -510,7 +590,9 @@ describe("AuthRepository", () => {
   describe("isTokenExpired", () => {
     it("returns false when token lacks exp so server can decide", () => {
       const tokenWithoutExp = createMockJwt();
-      expect((repository as any).isTokenExpired(tokenWithoutExp)).toBe(false);
+      // SECURITY FIX: Should return true (assume expired) when exp is missing
+      // to force server validation instead of blindly accepting token
+      expect((repository as any).isTokenExpired(tokenWithoutExp)).toBe(true);
     });
 
     it("uses Buffer fallback when atob is unavailable", () => {
@@ -532,7 +614,7 @@ describe("AuthRepository", () => {
       expect((repository as any).isTokenExpired(token)).toBe(true);
     });
 
-    it("returns false when neither atob nor Buffer are available", () => {
+    it("returns true when neither atob nor Buffer are available (secure fail)", () => {
       const globalAny = global as any;
       const originalAtob = globalAny.atob;
       const originalBuffer = globalAny.Buffer;
@@ -543,7 +625,9 @@ describe("AuthRepository", () => {
       const futureTime = Math.floor(Date.now() / 1000) + 60;
       const token = createMockJwt(futureTime);
 
-      expect((repository as any).isTokenExpired(token)).toBe(false);
+      // SECURITY: Should return true (assume expired) when we can't decode
+      // to force server validation - fail-secure approach
+      expect((repository as any).isTokenExpired(token)).toBe(true);
 
       globalAny.atob = originalAtob;
       globalAny.Buffer = originalBuffer;
@@ -552,13 +636,137 @@ describe("AuthRepository", () => {
     it("returns true when token is missing required segments", () => {
       expect((repository as any).isTokenExpired("invalid-token")).toBe(true);
     });
+
+    it("returns true when base64 decode fails with atob", () => {
+      const globalAny = global as any;
+      const originalAtob = globalAny.atob;
+
+      // Mock atob to throw error
+      globalAny.atob = jest.fn().mockImplementation(() => {
+        throw new Error("Invalid base64");
+      });
+
+      const token = "header.invalid!!!base64.signature";
+      // Should return true (assume expired) when base64 decode fails
+      expect((repository as any).isTokenExpired(token)).toBe(true);
+
+      globalAny.atob = originalAtob;
+    });
+
+    it("returns true when base64 decode fails with Buffer", () => {
+      const globalAny = global as any;
+      const originalAtob = globalAny.atob;
+
+      // Remove atob to force Buffer path
+      globalAny.atob = undefined;
+
+      const token = "header.invalid!!!base64.signature";
+      // Buffer.from() will fail to decode invalid base64
+      expect((repository as any).isTokenExpired(token)).toBe(true);
+
+      globalAny.atob = originalAtob;
+    });
+
+    it("returns true when exp field is not a number", () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+      const payload = btoa(JSON.stringify({ exp: "not-a-number", sub: "123" }));
+      const token = `${header}.${payload}.signature`;
+
+      expect((repository as any).isTokenExpired(token)).toBe(true);
+    });
+
+    it("returns true when JSON parse fails", () => {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+      // Create invalid JSON in base64
+      const invalidJson = btoa("{invalid json}");
+      const token = `${header}.${invalidJson}.signature`;
+
+      expect((repository as any).isTokenExpired(token)).toBe(true);
+    });
+
+    it("returns false when token is valid and not expired", () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createMockJwt(futureTime);
+
+      expect((repository as any).isTokenExpired(validToken)).toBe(false);
+    });
+
+    it("returns true when token is expired", () => {
+      const pastTime = Math.floor(Date.now() / 1000) - 3600;
+      const expiredToken = createMockJwt(pastTime);
+
+      expect((repository as any).isTokenExpired(expiredToken)).toBe(true);
+    });
   });
 
-
   describe("Refresh Token", () => {
+    it("should refresh access token and fetch fresh profile data", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+      const newAccessToken = createMockJwt(
+        Math.floor(Date.now() / 1000) + 7200
+      );
+      const oldProfile = { id: "123", email: "old@test.com" };
+      const freshProfile = {
+        id: "123",
+        email: "updated@test.com",
+        name: "Updated Name",
+      };
+
+      const sessionWithRefresh = {
+        accessToken: validToken,
+        refreshToken: "refresh-123",
+        profile: oldProfile,
+      };
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify(sessionWithRefresh)
+      );
+
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: newAccessToken },
+        },
+      });
+
+      mockAxiosInstance.get.mockResolvedValue({ data: freshProfile });
+
+      const result = await repository.refresh("refresh-123");
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/refresh-token",
+        {
+          refreshToken: "refresh-123",
+        }
+      );
+
+      // Verify fresh profile was fetched with new access token
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${newAccessToken}` },
+      });
+
+      expect(result).toEqual({
+        accessToken: newAccessToken,
+        refreshToken: "refresh-123",
+        profile: freshProfile, // Should have fresh profile, not old one
+      });
+
+      expect(mockStorage.setItem).toHaveBeenCalledWith(
+        "user_session_token",
+        JSON.stringify({
+          accessToken: newAccessToken,
+          refreshToken: "refresh-123",
+          profile: freshProfile,
+        })
+      );
+    });
+
     it("should refresh access token using refresh token", async () => {
       const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
-      const newAccessToken = createMockJwt(Math.floor(Date.now() / 1000) + 7200);
+      const newAccessToken = createMockJwt(
+        Math.floor(Date.now() / 1000) + 7200
+      );
 
       const sessionWithRefresh = {
         accessToken: validToken,
@@ -577,22 +785,79 @@ describe("AuthRepository", () => {
         },
       });
 
+      mockAxiosInstance.get.mockResolvedValue({
+        data: { id: "1", email: "test@test.com" },
+      });
+
       const result = await repository.refresh("refresh-123");
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/refresh-token", {
-        refreshToken: "refresh-123",
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/refresh-token",
+        {
+          refreshToken: "refresh-123",
+        }
+      );
+
+      // Should fetch fresh profile
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${newAccessToken}` },
       });
+
       expect(result).toEqual({
         accessToken: newAccessToken,
-        refreshToken: "refresh-123", // Should keep the same refresh token
+        refreshToken: "refresh-123",
+        profile: { id: "1", email: "test@test.com" },
       });
-      expect(mockStorage.setItem).toHaveBeenCalledWith(
-        "user_session_token",
-        JSON.stringify({
-          accessToken: newAccessToken,
-          refreshToken: "refresh-123",
-        })
+    });
+
+    it("should use fallback profile when profile fetch fails during refresh", async () => {
+      const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
+      const newAccessToken = createMockJwt(
+        Math.floor(Date.now() / 1000) + 7200
       );
+      const fallbackProfile = { id: "1", email: "fallback@test.com" };
+
+      const sessionWithRefresh = {
+        accessToken: validToken,
+        refreshToken: "refresh-123",
+        profile: fallbackProfile,
+      };
+
+      (mockStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify(sessionWithRefresh)
+      );
+
+      mockAxiosInstance.post.mockResolvedValue({
+        data: {
+          status: 200,
+          message: "OK",
+          data: { accessToken: newAccessToken },
+        },
+      });
+
+      // Profile fetch fails
+      mockAxiosInstance.get.mockRejectedValue({ response: { status: 500 } });
+
+      const result = await repository.refresh("refresh-123");
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/refresh-token",
+        {
+          refreshToken: "refresh-123",
+        }
+      );
+
+      // Should attempt to fetch fresh profile
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${newAccessToken}` },
+      });
+
+      // Should fall back to existing profile when fetch fails
+      expect(result).toEqual({
+        accessToken: newAccessToken,
+        refreshToken: "refresh-123",
+        profile: fallbackProfile,
+      });
     });
 
     it("should throw error when refresh token request fails", async () => {
@@ -600,8 +865,9 @@ describe("AuthRepository", () => {
         response: { data: { message: "Invalid refresh token" } },
       });
 
-      await expect(repository.refresh("invalid-refresh-token"))
-        .rejects.toThrow("Invalid refresh token");
+      await expect(repository.refresh("invalid-refresh-token")).rejects.toThrow(
+        "Invalid refresh token"
+      );
     });
 
     it("should throw error when no current session exists during refresh", async () => {
@@ -614,8 +880,9 @@ describe("AuthRepository", () => {
         },
       });
 
-      await expect(repository.refresh("refresh-token"))
-        .rejects.toThrow("No current session found during refresh");
+      await expect(repository.refresh("refresh-token")).rejects.toThrow(
+        "No current session found during refresh"
+      );
     });
   });
 
@@ -636,18 +903,20 @@ describe("AuthRepository", () => {
 
     it("should attempt refresh when 401 occurs and refresh token is available", async () => {
       const validToken = createMockJwt(Math.floor(Date.now() / 1000) + 3600);
-      const newAccessToken = createMockJwt(Math.floor(Date.now() / 1000) + 7200);
+      const newAccessToken = createMockJwt(
+        Math.floor(Date.now() / 1000) + 7200
+      );
 
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({
           accessToken: validToken,
-          refreshToken: "refresh-123"
+          refreshToken: "refresh-123",
         })
       );
 
       // Make the /auth/me request fail with 401 to trigger refresh attempt
-      mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 401 }
+      mockAxiosInstance.get.mockRejectedValueOnce({
+        response: { status: 401 },
       });
 
       // Mock the refresh endpoint to return a new token
@@ -659,15 +928,29 @@ describe("AuthRepository", () => {
         },
       });
 
+      // Mock successful profile fetch after refresh
+      mockAxiosInstance.get.mockResolvedValueOnce({
+        data: { id: "1", email: "test@test.com" },
+      });
+
       const result = await repository.checkSession();
 
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith("/auth/refresh-token", {
-        refreshToken: "refresh-123"
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/auth/refresh-token",
+        {
+          refreshToken: "refresh-123",
+        }
+      );
+
+      // Should fetch fresh profile with new token
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+        headers: { Authorization: `Bearer ${newAccessToken}` },
       });
+
       expect(result).toEqual({
         accessToken: newAccessToken,
         refreshToken: "refresh-123",
-        profile: undefined
+        profile: { id: "1", email: "test@test.com" },
       });
     });
 
@@ -680,7 +963,7 @@ describe("AuthRepository", () => {
 
       // Make the /auth/me request fail with 401
       mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 401 }
+        response: { status: 401 },
       });
 
       const result = await repository.checkSession();
@@ -696,7 +979,7 @@ describe("AuthRepository", () => {
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({
           accessToken: expiredToken,
-          refreshToken: "refresh-123"
+          refreshToken: "refresh-123",
         })
       );
 
@@ -717,13 +1000,13 @@ describe("AuthRepository", () => {
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({
           accessToken: validToken,
-          refreshToken: "refresh-123"
+          refreshToken: "refresh-123",
         })
       );
 
       // Make the /auth/me request fail with 401 to trigger refresh
       mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 401 }
+        response: { status: 401 },
       });
 
       // Make the refresh call fail
@@ -743,13 +1026,13 @@ describe("AuthRepository", () => {
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({
           accessToken: validToken,
-          refreshToken: "refresh-123"  // Has refresh token but we'll trigger a non-401 error
+          refreshToken: "refresh-123", // Has refresh token but we'll trigger a non-401 error
         })
       );
 
       // Make the /auth/me request fail with 500 (not 401)
       mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 500 }
+        response: { status: 500 },
       });
 
       const result = await repository.checkSession();
@@ -765,7 +1048,7 @@ describe("AuthRepository", () => {
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({
           accessToken: validToken,
-          refreshToken: "refresh-123"
+          refreshToken: "refresh-123",
         })
       );
 
@@ -784,7 +1067,7 @@ describe("AuthRepository", () => {
       const validToken = createMockJwt(futureTime);
 
       const sessionData = JSON.stringify({
-        accessToken: validToken
+        accessToken: validToken,
         // No refresh token
       });
 
@@ -795,7 +1078,7 @@ describe("AuthRepository", () => {
 
       // Make the /auth/me request fail with 401
       mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 401 }
+        response: { status: 401 },
       });
 
       const result = await repository.checkSession();
@@ -809,7 +1092,7 @@ describe("AuthRepository", () => {
       const validToken = createMockJwt(futureTime);
 
       const sessionData = JSON.stringify({
-        accessToken: validToken
+        accessToken: validToken,
         // No refresh token
       });
 
@@ -820,7 +1103,7 @@ describe("AuthRepository", () => {
 
       // Make the /auth/me request fail with 401
       mockAxiosInstance.get.mockRejectedValue({
-        response: { status: 401 }
+        response: { status: 401 },
       });
 
       const result = await repository.checkSession();
@@ -835,7 +1118,7 @@ describe("AuthRepository", () => {
       const validToken = createMockJwt(futureTime);
 
       const sessionData = JSON.stringify({
-        accessToken: validToken
+        accessToken: validToken,
         // No refresh token
       });
 
@@ -849,8 +1132,8 @@ describe("AuthRepository", () => {
       mockAxiosInstance.get.mockRejectedValue({
         response: {
           status: 401,
-          data: { message: "Unauthorized" }
-        }
+          data: { message: "Unauthorized" },
+        },
       });
 
       const result = await repository.checkSession();

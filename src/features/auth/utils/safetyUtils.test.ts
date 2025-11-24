@@ -11,7 +11,7 @@ import {
   isValidLoginRequest,
   safeExtractActionToken,
   safeExtractPasswordFromPending,
-  safeGetStringFromContext
+  safeGetStringFromContext,
 } from "./safetyUtils";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 
@@ -22,36 +22,97 @@ describe("Safety Utilities", () => {
   describe("hasRequiredProperties", () => {
     it("should return true when object has all required properties", () => {
       const obj = { email: "test@example.com", password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
+        "email",
+        "password",
+      ]);
       expect(result).toBe(true);
     });
 
     it("should return false when object is null", () => {
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(null, ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(null, [
+        "email",
+        "password",
+      ]);
       expect(result).toBe(false);
     });
 
     it("should return false when object is not an object", () => {
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>("not an object", ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(
+        "not an object",
+        ["email", "password"]
+      );
       expect(result).toBe(false);
     });
 
     it("should return false when object is missing a required property", () => {
       const obj = { email: "test@example.com" }; // missing password
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
+        "email",
+        "password",
+      ]);
       expect(result).toBe(false);
     });
 
     it("should return false when object has required property but it's null", () => {
       const obj = { email: null, password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
+        "email",
+        "password",
+      ]);
       expect(result).toBe(false);
     });
 
     it("should return false when object has required property but it's undefined", () => {
       const obj = { email: undefined, password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, ['email', 'password']);
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
+        "email",
+        "password",
+      ]);
       expect(result).toBe(false);
+    });
+
+    it("should return false when given an array (security fix)", () => {
+      // SECURITY: Arrays should be rejected even though typeof [] === 'object'
+      const arr = ["email", "password"];
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
+        "email",
+        "password",
+      ]);
+      expect(result).toBe(false);
+    });
+
+    it("should return false when given an array with numeric string indices", () => {
+      // SECURITY: Array with numeric properties should still be rejected
+      const arr = ["test@example.com", "password123"] as any;
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
+        "email",
+        "password",
+      ]);
+      expect(result).toBe(false);
+    });
+
+    it("should return false when given an array of objects", () => {
+      // SECURITY: Nested array structure should be rejected
+      const arr = [{ email: "test@example.com", password: "password123" }];
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
+        "email",
+        "password",
+      ]);
+      expect(result).toBe(false);
+    });
+
+    it("should return true for regular objects with properties", () => {
+      const obj = {
+        email: "test@example.com",
+        password: "password123",
+        extra: "field",
+      };
+      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
+        "email",
+        "password",
+      ]);
+      expect(result).toBe(true);
     });
   });
 
@@ -79,7 +140,7 @@ describe("Safety Utilities", () => {
       const session: AuthSession = {
         accessToken: "token123",
         refreshToken: "refresh123",
-        profile: { id: "1", email: "test@example.com" }
+        profile: { id: "1", email: "test@example.com" },
       };
       expect(isAuthSession(session)).toBe(true);
     });
@@ -120,7 +181,11 @@ describe("Safety Utilities", () => {
 
     it("should return defaultValue when path doesn't exist", () => {
       const obj = { user: { profile: { name: "John" } } };
-      const result = safeGetNestedValue<string>(obj, "user.profile.age", "unknown");
+      const result = safeGetNestedValue<string>(
+        obj,
+        "user.profile.age",
+        "unknown"
+      );
       expect(result).toBe("unknown");
     });
 
@@ -136,7 +201,10 @@ describe("Safety Utilities", () => {
     });
 
     it("should return undefined for non-object", () => {
-      const result = safeGetNestedValue<string>("not an object", "user.profile.name");
+      const result = safeGetNestedValue<string>(
+        "not an object",
+        "user.profile.name"
+      );
       expect(result).toBeUndefined();
     });
   });
@@ -168,7 +236,10 @@ describe("Safety Utilities", () => {
 
   describe("isValidLoginRequest", () => {
     it("should return true for valid LoginRequestDTO", () => {
-      const dto: LoginRequestDTO = { email: "test@example.com", password: "password123" };
+      const dto: LoginRequestDTO = {
+        email: "test@example.com",
+        password: "password123",
+      };
       expect(isValidLoginRequest(dto)).toBe(true);
     });
 
@@ -212,7 +283,7 @@ describe("Safety Utilities", () => {
       const session: AuthSession = {
         accessToken: "valid_token",
         refreshToken: "refresh_token",
-        profile: { id: "1", email: "test@example.com" }
+        profile: { id: "1", email: "test@example.com" },
       };
       expect(isAuthSession(session)).toBe(true);
     });
@@ -255,7 +326,10 @@ describe("Safety Utilities", () => {
 
   describe("safeExtractPasswordFromPending", () => {
     it("should return password when available", () => {
-      const pending: LoginRequestDTO = { email: "test@example.com", password: "pass123" };
+      const pending: LoginRequestDTO = {
+        email: "test@example.com",
+        password: "pass123",
+      };
       expect(safeExtractPasswordFromPending(pending)).toBe("pass123");
     });
 
