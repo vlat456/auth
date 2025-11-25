@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 /**
  * Path: src/features/auth/machine/authMachine.test.ts
  * Version: 0.1.0
@@ -5,15 +6,20 @@
 
 import { createActor, AnyActor, StateFrom } from "xstate";
 import { createAuthMachine } from "./authMachine";
-import { resolveRegistrationPassword, hasValidCredentials } from "../utils/safetyUtils";
+import {
+  resolveRegistrationPassword,
+  hasValidCredentials,
+} from "../utils/safetyUtils";
 import { IAuthRepository } from "../types";
 
 jest.useFakeTimers();
 
 // Helper to wait for a specific state or condition
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const waitForState = <T extends AnyActor>(
   actor: T,
-  predicate: (snapshot: StateFrom<T["logic"]>) => boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  predicate: (snapshot: any) => boolean
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -35,6 +41,12 @@ const waitForState = <T extends AnyActor>(
       }
     });
   });
+};
+
+// Helper to safely check state matches with type safety
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const stateMatches = (snapshot: any, pattern: any): boolean => {
+  return snapshot["matches"](pattern);
 };
 
 const mockRepo: IAuthRepository = {
@@ -66,14 +78,14 @@ describe("Auth Machine", () => {
     it("should move to unauthorized if no session", async () => {
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(null);
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
     });
 
     it("should move to authorized if session exists", async () => {
       const mockSession = { accessToken: "validaccesstoken" };
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(mockSession);
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("authorized"));
+      await waitForState(actor, (s) => s["matches"]("authorized"));
       expect(actor.getSnapshot().context.session).toEqual(mockSession);
     });
   });
@@ -84,14 +96,20 @@ describe("Auth Machine", () => {
     });
 
     it("should handle success", async () => {
-      const mockSession = { accessToken: "validaccesstoken", refreshToken: "validrefreshtoken" };
+      const mockSession = {
+        accessToken: "validaccesstoken",
+        refreshToken: "validrefreshtoken",
+      };
       (mockRepo.login as jest.Mock).mockResolvedValue(mockSession);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
-      const p1 = waitForState(actor, (s) => s.matches("authorized"));
-      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
+      const p1 = waitForState(actor, (s) => s["matches"]("authorized"));
+      actor.send({
+        type: "LOGIN",
+        payload: { email: "test@example.com", password: "validpass" },
+      });
       await p1;
 
       expect(mockRepo.login).toHaveBeenCalled();
@@ -102,15 +120,18 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockRejectedValue(new Error("Fail"));
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const p1 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { login: "idle" } }) &&
+          s["matches"]({ unauthorized: { login: "idle" } }) &&
           s.context.error !== null
       );
-      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
+      actor.send({
+        type: "LOGIN",
+        payload: { email: "test@example.com", password: "validpass" },
+      });
       await p1;
 
       const snapshot = actor.getSnapshot();
@@ -121,15 +142,18 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockRejectedValue(new Error(""));
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const p1 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { login: "idle" } }) &&
+          s["matches"]({ unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
-      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
+      actor.send({
+        type: "LOGIN",
+        payload: { email: "test@example.com", password: "validpass" },
+      });
       await p1;
     });
   });
@@ -147,16 +171,16 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockResolvedValue(mockSession);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toRegister = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
 
       const toVerifyOtp = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "verifyOtp" } })
+        s["matches"]({ unauthorized: { register: "verifyOtp" } })
       );
       actor.send({
         type: "REGISTER",
@@ -164,7 +188,9 @@ describe("Auth Machine", () => {
       });
       await toVerifyOtp;
 
-      const toAuthorized = waitForState(actor, (s) => s.matches("authorized"));
+      const toAuthorized = waitForState(actor, (s) =>
+        s["matches"]("authorized")
+      );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "654321" } });
       await toAuthorized;
 
@@ -197,16 +223,16 @@ describe("Auth Machine", () => {
       );
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toRegister = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
 
       const toVerifyOtp = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "verifyOtp" } })
+        s["matches"]({ unauthorized: { register: "verifyOtp" } })
       );
       actor.send({
         type: "REGISTER",
@@ -219,7 +245,8 @@ describe("Auth Machine", () => {
 
       const backToLogin = waitForState(
         actor,
-        (s) => s.matches({ unauthorized: "login" }) && s.context.error !== null
+        (s) =>
+          s["matches"]({ unauthorized: "login" }) && s.context.error !== null
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "654321" } });
       await backToLogin;
@@ -238,18 +265,18 @@ describe("Auth Machine", () => {
       (mockRepo.register as jest.Mock).mockRejectedValue(new Error("Exists"));
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       // 1. Go to register screen
       const p1 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await p1;
 
       // 2. Send the register event that will fail
       const backToForm = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({
         type: "REGISTER",
@@ -259,7 +286,7 @@ describe("Auth Machine", () => {
 
       const snapshot = actor.getSnapshot();
       expect(snapshot.context.error?.message).toBe("Exists");
-      expect(snapshot.matches({ unauthorized: { register: "form" } })).toBe(
+      expect(snapshot["matches"]({ unauthorized: { register: "form" } })).toBe(
         true
       );
     });
@@ -268,10 +295,10 @@ describe("Auth Machine", () => {
       (mockRepo.register as jest.Mock).mockRejectedValue(undefined);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toForm = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toForm;
@@ -279,7 +306,7 @@ describe("Auth Machine", () => {
       const backToForm = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { register: "form" } }) &&
+          s["matches"]({ unauthorized: { register: "form" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -291,10 +318,10 @@ describe("Auth Machine", () => {
       (mockRepo.verifyOtp as jest.Mock).mockRejectedValue(new Error("Bad OTP"));
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "verifyOtp" } })
+        s["matches"]({ unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -303,7 +330,7 @@ describe("Auth Machine", () => {
       const pErr = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { register: "verifyOtp" } }) &&
+          s["matches"]({ unauthorized: { register: "verifyOtp" } }) &&
           s.context.error !== null
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "000000" } });
@@ -317,10 +344,10 @@ describe("Auth Machine", () => {
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("token");
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "verifyOtp" } })
+        s["matches"]({ unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -333,7 +360,9 @@ describe("Auth Machine", () => {
       await Promise.resolve();
 
       expect(
-        actor.getSnapshot().matches({ unauthorized: { register: "verifyOtp" } })
+        actor
+          .getSnapshot()
+          ["matches"]({ unauthorized: { register: "verifyOtp" } })
       ).toBe(true);
       expect(mockRepo.verifyOtp).not.toHaveBeenCalled();
     });
@@ -345,10 +374,10 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockRejectedValue(new Error("Fail login"));
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "verifyOtp" } })
+        s["matches"]({ unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -360,7 +389,7 @@ describe("Auth Machine", () => {
       };
 
       const backToLogin = waitForState(actor, (s) =>
-        s.matches({ unauthorized: "login" })
+        s["matches"]({ unauthorized: "login" })
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await backToLogin;
@@ -383,10 +412,10 @@ describe("Auth Machine", () => {
       );
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const p1 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "idle" } })
+        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
@@ -394,7 +423,7 @@ describe("Auth Machine", () => {
       const p2 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { forgotPassword: "idle" } }) &&
+          s["matches"]({ unauthorized: { forgotPassword: "idle" } }) &&
           s.context.error !== null
       );
       actor.send({
@@ -414,17 +443,17 @@ describe("Auth Machine", () => {
       );
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       // 1. Go to forgot password and submit email successfully
       const p1 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "idle" } })
+        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({
         type: "FORGOT_PASSWORD",
@@ -436,7 +465,7 @@ describe("Auth Machine", () => {
       const p3 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { forgotPassword: "verifyOtp" } }) &&
+          s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } }) &&
           s.context.error !== null
       );
       actor.send({
@@ -459,17 +488,17 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockResolvedValue(mockSession);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       // 1. Go to forgot password and submit email
       const p1 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "idle" } })
+        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({
         type: "FORGOT_PASSWORD",
@@ -480,7 +509,7 @@ describe("Auth Machine", () => {
 
       // 2. Submit OTP
       const p3 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "resetPassword" } })
+        s["matches"]({ unauthorized: { forgotPassword: "resetPassword" } })
       );
       actor.send({
         type: "VERIFY_OTP",
@@ -491,7 +520,7 @@ describe("Auth Machine", () => {
 
       // 3. Submit new password
       const p4 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "resettingPassword" } })
+        s["matches"]({ unauthorized: { forgotPassword: "resettingPassword" } })
       );
       actor.send({
         type: "RESET_PASSWORD",
@@ -505,7 +534,7 @@ describe("Auth Machine", () => {
         newPassword: "new-password",
       });
 
-      const p5 = waitForState(actor, (s) => s.matches("authorized"));
+      const p5 = waitForState(actor, (s) => s["matches"]("authorized"));
       await p5;
       expect(mockRepo.login).toHaveBeenCalledWith({
         email: "test@test.com",
@@ -519,10 +548,10 @@ describe("Auth Machine", () => {
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("action-token");
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       actor.send({
@@ -539,7 +568,7 @@ describe("Auth Machine", () => {
       expect(
         actor
           .getSnapshot()
-          .matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+          ["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
       ).toBe(true);
       expect(mockRepo.verifyOtp).not.toHaveBeenCalled();
     });
@@ -549,10 +578,10 @@ describe("Auth Machine", () => {
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("action-token");
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       actor.send({
@@ -562,7 +591,7 @@ describe("Auth Machine", () => {
       await toVerify;
 
       const toReset = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { forgotPassword: "resetPassword" } })
+        s["matches"]({ unauthorized: { forgotPassword: "resetPassword" } })
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await toReset;
@@ -578,7 +607,7 @@ describe("Auth Machine", () => {
       expect(
         actor
           .getSnapshot()
-          .matches({ unauthorized: { forgotPassword: "resetPassword" } })
+          ["matches"]({ unauthorized: { forgotPassword: "resetPassword" } })
       ).toBe(true);
       expect(mockRepo.completePasswordReset).not.toHaveBeenCalled();
     });
@@ -588,16 +617,16 @@ describe("Auth Machine", () => {
     it("should navigate between sub-states", async () => {
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(null);
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches({ unauthorized: "login" }));
+      await waitForState(actor, (s) => s["matches"]({ unauthorized: "login" }));
 
       const p1 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: "register" })
+        s["matches"]({ unauthorized: "register" })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s.matches({ unauthorized: "login" })
+        s["matches"]({ unauthorized: "login" })
       );
       actor.send({ type: "GO_TO_LOGIN" });
       await p2;
@@ -609,9 +638,9 @@ describe("Auth Machine", () => {
       (mockRepo.logout as jest.Mock).mockResolvedValue(undefined);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("authorized"));
+      await waitForState(actor, (s) => s["matches"]("authorized"));
 
-      const p1 = waitForState(actor, (s) => s.matches("unauthorized"));
+      const p1 = waitForState(actor, (s) => s["matches"]("unauthorized"));
       actor.send({ type: "LOGOUT" });
       await p1;
 
@@ -627,7 +656,7 @@ describe("Auth Machine", () => {
       );
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       // The error might not be set on the context during checkSession error
       // Just ensure it transitions to unauthorized as expected
@@ -642,15 +671,18 @@ describe("Auth Machine", () => {
       (mockRepo.login as jest.Mock).mockRejectedValue(null);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const p1 = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { login: "idle" } }) &&
+          s["matches"]({ unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
-      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
+      actor.send({
+        type: "LOGIN",
+        payload: { email: "test@example.com", password: "validpass" },
+      });
       await p1;
 
       expect(actor.getSnapshot().context.error?.message).toBe(
@@ -663,11 +695,11 @@ describe("Auth Machine", () => {
       (mockRepo.register as jest.Mock).mockRejectedValue(null);
 
       const actor = createTestActor();
-      await waitForState(actor, (s) => s.matches("unauthorized"));
+      await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       // Navigate to register
       const toRegister = waitForState(actor, (s) =>
-        s.matches({ unauthorized: { register: "form" } })
+        s["matches"]({ unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
@@ -676,7 +708,7 @@ describe("Auth Machine", () => {
       const backToForm = waitForState(
         actor,
         (s) =>
-          s.matches({ unauthorized: { register: "form" } }) &&
+          s["matches"]({ unauthorized: { register: "form" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({
@@ -691,7 +723,3 @@ describe("Auth Machine", () => {
     });
   });
 });
-
-
-
-

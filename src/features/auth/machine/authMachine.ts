@@ -55,35 +55,38 @@ export type AuthEvent =
 
 export const createAuthMachine = (authRepository: IAuthRepository) => {
   return setup({
-    types: {
-      context: {} as AuthContext,
-      events: {} as AuthEvent,
+    types: {} as {
+      context: AuthContext;
+      events: AuthEvent;
     },
     actors: {
       checkSession: fromPromise(async () => {
         return await authRepository.checkSession();
       }),
-      validateAndRefreshSessionIfNeeded: fromPromise(async ({ input }: { input: { session?: AuthSession } }) => {
-        // Simple direct call to the simplified repository
-        const currentSession = input.session || await authRepository.checkSession();
-        if (!currentSession) return null;
+      validateAndRefreshSessionIfNeeded: fromPromise(
+        async ({ input }: { input: { session?: AuthSession } }) => {
+          // Simple direct call to the simplified repository
+          const currentSession =
+            input.session || (await authRepository.checkSession());
+          if (!currentSession) return null;
 
-        // If we need refresh logic, it should be handled in the machine
-        // For now, return the session as is
-        return currentSession;
-      }),
+          // If we need refresh logic, it should be handled in the machine
+          // For now, return the session as is
+          return currentSession;
+        }
+      ),
       loginUser: fromPromise(async ({ input }: { input: LoginRequestDTO }) => {
         return await authRepository.login(input);
       }),
       registerUser: fromPromise(
         async ({ input }: { input: RegisterRequestDTO }) => {
           return await authRepository.register(input);
-        },
+        }
       ),
       requestPasswordReset: fromPromise(
         async ({ input }: { input: RequestOtpDTO }) => {
           return await authRepository.requestPasswordReset(input);
-        },
+        }
       ),
       verifyOtp: fromPromise(async ({ input }: { input: VerifyOtpDTO }) => {
         return await authRepository.verifyOtp(input);
@@ -91,31 +94,35 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       completeRegistration: fromPromise(
         async ({ input }: { input: CompleteRegistrationDTO }) => {
           return await authRepository.completeRegistration(input);
-        },
+        }
       ),
       completePasswordReset: fromPromise(
         async ({ input }: { input: CompletePasswordResetDTO }) => {
           return await authRepository.completePasswordReset(input);
-        },
+        }
       ),
       logoutUser: fromPromise(async () => {
         return await authRepository.logout();
       }),
-      refreshToken: fromPromise(async ({ input }: { input: { refreshToken: string } }) => {
-        return await authRepository.refresh(input.refreshToken);
-      }),
-      validateSessionWithServer: fromPromise(async ({ input }: { input: { session: AuthSession } }) => {
-        // In the new architecture, validation happens through direct API calls
-        // The machine will decide what to do based on the result
-        try {
-          // Attempt to validate by making an authenticated request
-          // This would require the repository to have a method to check session validity
-          // For now, we'll just return the session and let the machine handle validation
-          return input.session;
-        } catch (error) {
-          return null;
+      refreshToken: fromPromise(
+        async ({ input }: { input: { refreshToken: string } }) => {
+          return await authRepository.refresh(input.refreshToken);
         }
-      }),
+      ),
+      validateSessionWithServer: fromPromise(
+        async ({ input }: { input: { session: AuthSession } }) => {
+          // In the new architecture, validation happens through direct API calls
+          // The machine will decide what to do based on the result
+          try {
+            // Attempt to validate by making an authenticated request
+            // This would require the repository to have a method to check session validity
+            // For now, we'll just return the session and let the machine handle validation
+            return input.session;
+          } catch (error) {
+            return null;
+          }
+        }
+      ),
     },
     actions: {
       setSession: assign({
@@ -220,7 +227,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       },
       validatingSession: {
         on: {
-          COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess",
+          COMPLETE_REGISTRATION:
+            "#auth.unauthorized.completeRegistrationProcess",
         },
         invoke: {
           src: "validateSessionWithServer",
@@ -229,34 +237,36 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             target: "authorized",
           },
           onError: {
-            target: "refreshingToken",  // If validation fails, try to refresh
+            target: "refreshingToken", // If validation fails, try to refresh
           },
         },
       },
       refreshingToken: {
         on: {
-          COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess",
+          COMPLETE_REGISTRATION:
+            "#auth.unauthorized.completeRegistrationProcess",
         },
         invoke: {
-          id: 'refresh-token',
+          id: "refresh-token",
           src: "refreshToken",
           input: ({ context }) => ({
-            refreshToken: context.session?.refreshToken || ""
+            refreshToken: context.session?.refreshToken || "",
           }),
           onDone: {
             target: "authorized",
             actions: assign({
-              session: (_, event) => event.output // Update session from event data
-            })
+              // @ts-expect-error - XState type inference with generic actor types
+              session: (_, event) => event?.output || null, // Update session from event data
+            }),
           },
           onError: {
             target: "unauthorized", // Go to unauthenticated state if refresh fails
             actions: assign({
               session: null,
-              error: (_, event) => ({ message: "Session refresh failed" })
-            })
-          }
-        }
+              error: (_, event) => ({ message: "Session refresh failed" }),
+            }),
+          },
+        },
       },
 
       unauthorized: {
@@ -307,8 +317,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               src: "completeRegistration",
               input: ({ event }) => {
                 // Extract payload from COMPLETE_REGISTRATION event
-                if (event.type === 'COMPLETE_REGISTRATION') {
-                  return (event as { type: 'COMPLETE_REGISTRATION'; payload: CompleteRegistrationDTO }).payload;
+                if (event.type === "COMPLETE_REGISTRATION") {
+                  return (
+                    event as {
+                      type: "COMPLETE_REGISTRATION";
+                      payload: CompleteRegistrationDTO;
+                    }
+                  ).payload;
                 }
                 return { actionToken: "", newPassword: "" };
               },
@@ -428,7 +443,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                   input: ({ context }) => ({
                     actionToken: context.registrationActionToken ?? "",
                     newPassword: resolveRegistrationPassword(
-                      context.pendingCredentials,
+                      context.pendingCredentials
                     ),
                   }),
                   onDone: "loggingIn",
@@ -601,12 +616,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
           REFRESH: {
             target: "refreshingToken",
           },
-          COMPLETE_REGISTRATION: ".completeRegistrationProcess",
+          COMPLETE_REGISTRATION:
+            "#auth.unauthorized.completeRegistrationProcess",
         },
         invoke: {
           // Periodically check if the token needs a refresh
           src: "validateAndRefreshSessionIfNeeded",
-          input: ({ context }) => ({ session: context.session }),
+          input: ({ context }) => ({ session: context.session ?? undefined }),
         },
       },
 

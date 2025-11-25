@@ -16,14 +16,14 @@ import {
   DeleteAccountRequestDTO,
 } from "./features/auth/types";
 import { AuthService } from "./features/auth/service/authService";
-import { SimplifiedAuthRepository } from "./features/auth/repositories/SimplifiedAuthRepository";
+import { AuthRepository } from "./features/auth/repositories/AuthRepository";
 
 export class ReactNativeAuthInterface {
   private authService: AuthService;
 
   constructor(apiBaseURL?: string) {
-    // Initialize the SimplifiedAuthRepository with React Native storage
-    const authRepository = new SimplifiedAuthRepository(ReactNativeStorage, apiBaseURL);
+    // Initialize the AuthRepository with React Native storage
+    const authRepository = new AuthRepository(ReactNativeStorage, apiBaseURL);
 
     // Initialize auth service with the repository
     this.authService = new AuthService(authRepository);

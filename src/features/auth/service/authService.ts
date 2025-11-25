@@ -6,7 +6,7 @@
 import { interpret, ActorRefFrom } from 'xstate';
 import { createAuthMachine } from '../machine/authMachine';
 import { IAuthRepository } from '../types';
-import { SimplifiedAuthRepository } from '../repositories/SimplifiedAuthRepository';
+
 import { AuthContext, AuthEvent } from '../machine/authMachine';
 
 // Define the auth service class that will manage the machine

@@ -223,4 +223,53 @@ export class ReactNativeAuthInterface {
     this.authService.send({ type: 'LOGOUT' });
   }
 }
+
+---
+
+## Refactoring Follow-up (2025-11-25): New Inconsistencies
+
+A refactoring effort was made to address the issues outlined above. While it successfully introduced the `authMachine` as the central controller for authentication logic, it failed to complete the cleanup and introduced several new architectural flaws.
+
+### 1. **New Flaw: Incomplete Simplification of the Active Repository**
+
+The `SimplifiedAuthRepository` is an improvement but still violates the core principle of being a stateless API layer.
+
+*   **Stateful Logic in `refresh`:** The `refresh` method contains business logic to fetch a fresh user profile after a token refresh.
+    ```typescript
+    // In SimplifiedAuthRepository.ts
+    // ...
+    // Fetch fresh profile data using the new access token
+    let freshProfile: UserProfile | undefined;
+    try {
+      const profileResponse = await this.apiClient.get<UserProfile>(
+        "/auth/me",
+        {
+          headers: { Authorization: `Bearer ${newAccessToken}` },
+        },
+      );
+    //...
+    ```
+    This logic belongs in the `authMachine`. The repository's responsibility should end at refreshing the token and returning the new session data. The state machine should then decide whether a subsequent profile fetch is required.
+
+### 2. **New Flaw: Loosely Typed State Machine Interactions**
+
+The refactored `ReactNativeAuthInterface.ts` now interacts with the `authService`. However, these interactions are not strongly typed.
+
+*   **Use of `any`:** The subscription callbacks use `any` to type the state object from the machine.
+    ```typescript
+    // In ReactNativeAuthInterface.ts
+    const subscription = this.authService.subscribe((state: any) => {
+      // ...
+    });
+    ```
+    This undermines the safety and predictability that TypeScript and XState are meant to provide. The machine's state schema is well-defined and should be used to type these interactions.
+
+## Final Recommendations to Complete the Refactoring
+
+1.  **Complete the Simplification:**
+    *   Refactor the `refresh` method in the new `AuthRepository.ts` (formerly `SimplifiedAuthRepository.ts`) to remove the profile-fetching logic. It should only be responsible for the `/auth/refresh-token` API call and persisting the new session.
+    *   Update the `authMachine` to orchestrate the profile fetch as a separate step after a successful token refresh.
+
+2.  **Enforce Strong Typing:**
+    *   In `ReactNativeAuthInterface.ts`, replace `any` with the proper type for the machine's state snapshot (e.g., `SnapshotFrom<typeof authMachine>`). This will provide full type safety and autocompletion for state and context values.
 ```

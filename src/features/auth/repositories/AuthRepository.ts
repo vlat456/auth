@@ -1,6 +1,6 @@
 /**
  * Path: src/features/auth/repositories/AuthRepository.ts
- * Version: 0.2.0
+ * A stateless API layer that only makes direct calls to the backend
  */
 
 import axios, {
@@ -8,17 +8,16 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from "axios";
-import * as jwt from "jsonwebtoken";
-import {
-  IAuthRepository,
-  LoginRequestDTO,
-  RegisterRequestDTO,
-  RequestOtpDTO,
-  VerifyOtpDTO,
-  CompletePasswordResetDTO,
-  CompleteRegistrationDTO,
-  AuthSession,
-  ApiSuccessResponse,
+import { 
+  IAuthRepository, 
+  LoginRequestDTO, 
+  RegisterRequestDTO, 
+  RequestOtpDTO, 
+  VerifyOtpDTO, 
+  CompletePasswordResetDTO, 
+  CompleteRegistrationDTO, 
+  AuthSession, 
+  ApiSuccessResponse, 
   LoginResponseDTO,
   RefreshRequestDTO,
   RefreshResponseData,
@@ -27,21 +26,13 @@ import {
 } from "../types";
 import { withErrorHandling } from "../utils/errorHandler";
 import {
-  isUserProfile,
-} from "../utils/safetyUtils";
-import {
   LoginResponseSchemaWrapper,
   RefreshResponseSchemaWrapper,
   validateSafe,
   AuthSessionSchema,
 } from "../schemas/validationSchemas";
-import { createLockedFunction } from "../utils/lockUtils";
-import { authRateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rateLimitUtils";
 
 const STORAGE_KEY = "user_session_token";
-
-// Mutex to prevent concurrent token refresh operations
-const refreshMutex = createLockedFunction;
 
 interface RetryConfig extends InternalAxiosRequestConfig {
   _retryCount?: number;
@@ -59,13 +50,11 @@ export class AuthRepository implements IAuthRepository {
 
   constructor(
     storage: IStorage,
-    baseURL?: string, // Make it optional but encourage developers to provide their own
+    baseURL?: string,
   ) {
     this.storage = storage;
 
-    // Provide a more generic default that encourages developers to override
-    // The developer note mentioned to initialize at constructor, so this still follows that
-    const finalBaseURL = baseURL || "https://api.astra.example.com"; // Original value maintained for tests
+    const finalBaseURL = baseURL || "https://api.astra.example.com";
 
     this.apiClient = axios.create({
       baseURL: finalBaseURL,
@@ -77,29 +66,10 @@ export class AuthRepository implements IAuthRepository {
   }
 
   /**
-   * Function to apply rate limiting to a method
-   */
-  private async applyRateLimit(
-    email: string,
-    keyPrefix: string,
-    rateLimitConfig: typeof DEFAULT_RATE_LIMITS[keyof typeof DEFAULT_RATE_LIMITS]
-  ): Promise<void> {
-    const key = `${keyPrefix}_${email}`;
-    const rateLimitResult = authRateLimiter.check(key, rateLimitConfig);
-
-    if (!rateLimitResult.allowed) {
-      throw new Error(`Too many ${keyPrefix} attempts. Please try again later.`);
-    }
-  }
-
-  /**
    * Authenticates a user by email and password.
-   * Returns an AuthSession with access token and optional refresh token.
    */
   login = withErrorHandling(
     async (payload: LoginRequestDTO): Promise<AuthSession> => {
-      await this.applyRateLimit(payload.email, 'login', DEFAULT_RATE_LIMITS.login);
-
       const response = await this.apiClient.post<
         ApiSuccessResponse<LoginResponseDTO>
       >("/auth/login", payload);
@@ -112,8 +82,9 @@ export class AuthRepository implements IAuthRepository {
       const validatedData = validationResult.data;
       const session: AuthSession = {
         accessToken: validatedData.data.accessToken,
-        refreshToken: validatedData.data.refreshToken, // refreshToken can be undefined
+        refreshToken: validatedData.data.refreshToken,
       };
+      
       await this.saveSession(session);
       return session;
     },
@@ -121,16 +92,12 @@ export class AuthRepository implements IAuthRepository {
 
   register = withErrorHandling(
     async (payload: RegisterRequestDTO): Promise<void> => {
-      await this.applyRateLimit(payload.email, 'register', DEFAULT_RATE_LIMITS.registration);
-
       await this.apiClient.post("/auth/register", payload);
     },
   );
 
   requestPasswordReset = withErrorHandling(
     async (payload: RequestOtpDTO): Promise<void> => {
-      await this.applyRateLimit(payload.email, 'otp_request', DEFAULT_RATE_LIMITS.otpRequest);
-
       await this.apiClient.post("/auth/otp/request", payload);
     },
   );
@@ -157,129 +124,22 @@ export class AuthRepository implements IAuthRepository {
   );
 
   /**
-   * Validates and returns the current session with the server, handling expiration as needed
+   * Checks current session by reading from storage
+   * (state management is handled by the auth machine)
    */
   async checkSession(): Promise<AuthSession | null> {
-    return await this.validateAndRefreshSessionIfNeeded();
-  }
-
-  /**
-   * Unified method to validate session and refresh if needed
-   */
-  private async validateAndRefreshSessionIfNeeded(session?: AuthSession): Promise<AuthSession | null> {
-    // If session not provided, read from storage
-    const currentSession = session || await this.readSession();
-    if (!currentSession) return null;
-
-    // Check if access token is expired
-    if (this.isTokenExpired(currentSession.accessToken)) {
-      return await this.handleExpiredSession(currentSession);
-    }
-
-    // Validate session with server
-    return await this.validateSessionWithServer(currentSession);
-  }
-
-  private async handleExpiredSession(
-    session: AuthSession,
-  ): Promise<AuthSession | null> {
-    if (!session.refreshToken) {
-      // No refresh token, so clear session and return null
-      await this.logout();
-      return null;
-    }
-
-    try {
-      // Attempt to refresh the session using the refresh token
-      return await this.refresh(session.refreshToken);
-    } catch (refreshError: unknown) {
-      // If refresh fails, logout and return null
-      console.error("Token refresh failed:", refreshError);
-      await this.logout();
-      return null;
-    }
-  }
-
-  private async validateSessionWithServer(
-    session: AuthSession,
-  ): Promise<AuthSession | null> {
-    try {
-      const response = await this.apiClient.get<UserProfile>("/auth/me", {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      });
-
-      // Validate the response data before using it
-      const userData = response.data;
-      if (!isUserProfile(userData)) {
-        console.error("Invalid user profile received from server");
-        return null;
-      }
-
-      const enrichedSession: AuthSession = { ...session, profile: userData };
-      await this.saveSession(enrichedSession);
-      return enrichedSession;
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        const response = error.response;
-        if (response?.status === 401) {
-          // Server rejected the token, try to refresh
-          return await this.handle401Error();
-        }
-      }
-      // For other errors, return null without logging out
-      return null;
-    }
-  }
-
-  private async handle401Error(): Promise<AuthSession | null> {
-    const session = await this.readSession();
-    if (!session?.refreshToken) {
-      // No session or no refresh token, just return null
-      // Don't logout if there was no session to begin with
-      if (session) {
-        await this.logout();
-      }
-      return null;
-    }
-
-    try {
-      // Attempt to refresh using the available refresh token
-      return await this.refresh(session.refreshToken);
-    } catch (refreshError: unknown) {
-      // If refresh fails, logout and return null
-      console.error("Token refresh after 401 failed:", refreshError);
-      await this.logout();
-      return null;
-    }
+    return await this.readSession();
   }
 
   /**
    * Refreshes the access token using a refresh token.
-   *
-   * IMPORTANT: This method now automatically fetches fresh profile data from the server
-   * to prevent carrying stale user information. If the profile fetch fails, it falls back
-   * to the previously stored profile.
-   *
-   * Why profile is refreshed:
-   * - User's role/permissions might have changed
-   * - Account might be suspended or deleted
-   * - Email or other user data might be outdated
-   * - Without refresh, authorization decisions could be based on stale data
-   *
-   * Throws error if:
-   * - Refresh token is invalid/expired
-   * - No current session exists
-   * - API returns invalid response
-   *
-   * Returns: AuthSession with new accessToken and fresh profile data
    */
-  refresh = createLockedFunction(
-    withErrorHandling(async (refreshToken: string): Promise<AuthSession> => {
+  refresh = withErrorHandling(
+    async (refreshToken: string): Promise<AuthSession> => {
       const response = await this.apiClient.post<
         ApiSuccessResponse<RefreshResponseData>
       >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
 
-      // Use Zod to validate the response structure
       const validationResult = validateSafe(RefreshResponseSchemaWrapper, response.data);
       if (!validationResult.success) {
         throw new Error(`Invalid refresh response: ${JSON.stringify(validationResult.errors)}`);
@@ -294,7 +154,7 @@ export class AuthRepository implements IAuthRepository {
         throw new Error("No current session found during refresh");
       }
 
-      // Fetch fresh profile data using the new access token to avoid stale user data
+      // Fetch fresh profile data using the new access token
       let freshProfile: UserProfile | undefined;
       try {
         const profileResponse = await this.apiClient.get<UserProfile>(
@@ -305,17 +165,16 @@ export class AuthRepository implements IAuthRepository {
         );
 
         const userData = profileResponse.data;
-        if (isUserProfile(userData)) {
+        if (this.isUserProfile(userData)) {
           freshProfile = userData;
         }
       } catch (profileError: unknown) {
         // Log profile fetch error but don't fail the refresh
-        // The session can still be valid even if profile fetch fails
         console.warn(
           "Profile refresh failed during token refresh:",
           profileError,
         );
-        // Keep the existing profile as fallback
+        // Keep the existing profile as fallback if available
         freshProfile = currentSession.profile;
       }
 
@@ -323,26 +182,19 @@ export class AuthRepository implements IAuthRepository {
       const refreshedSession: AuthSession = {
         accessToken: newAccessToken,
         refreshToken: currentSession.refreshToken,
-        profile: freshProfile, // Use freshly fetched profile instead of stale one
+        profile: freshProfile,
       };
 
       await this.saveSession(refreshedSession);
       return refreshedSession;
-    })
+    }
   );
-
-  async logout(): Promise<void> {
-    await this.storage.removeItem(STORAGE_KEY);
-  }
 
   /**
    * Refreshes the user profile data without requiring a token refresh.
-   * Useful when user profile might have been updated (e.g., role change, account suspension).
-   * Returns the updated session or null if profile fetch fails or no valid session exists.
    */
   async refreshProfile(): Promise<AuthSession | null> {
-    // First validate and refresh the session if needed to ensure we have a valid token
-    const session = await this.validateAndRefreshSessionIfNeeded();
+    const session = await this.readSession();
     if (!session) return null;
 
     try {
@@ -351,7 +203,7 @@ export class AuthRepository implements IAuthRepository {
       });
 
       const userData = response.data;
-      if (!isUserProfile(userData)) {
+      if (!this.isUserProfile(userData)) {
         return null;
       }
 
@@ -368,6 +220,10 @@ export class AuthRepository implements IAuthRepository {
       // Return null on profile fetch failure
       return null;
     }
+  }
+
+  async logout(): Promise<void> {
+    await this.storage.removeItem(STORAGE_KEY);
   }
 
   // --- Internals ---
@@ -413,7 +269,7 @@ export class AuthRepository implements IAuthRepository {
         return {
           accessToken: parsedObj.accessToken,
           refreshToken: typeof parsedObj.refreshToken === 'string' ? parsedObj.refreshToken : undefined,
-          profile: isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
+          profile: this.isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
         };
       }
     }
@@ -421,77 +277,10 @@ export class AuthRepository implements IAuthRepository {
     return null;
   }
 
-  private extractRefreshToken(parsedToken: {
-    refreshToken?: string;
-  }): string | undefined {
-    if (typeof parsedToken.refreshToken === "string") {
-      return parsedToken.refreshToken;
-    }
-    return undefined;
-  }
-
-  private extractProfile(parsedToken: {
-    profile?: UserProfile;
-  }): UserProfile | undefined {
-    if (parsedToken.profile && isUserProfile(parsedToken.profile)) {
-      return parsedToken.profile;
-    }
-    return undefined;
-  }
-
-  /**
-   * Validates JWT using jsonwebtoken library which includes signature verification.
-   * Logs out and returns to login screen with error when JWT validation fails.
-   * Returns true if expired, invalid, or signature verification fails.
-   *
-   * SECURITY: This uses a "fail-secure" approach:
-   * - If token cannot be decoded, verified or validated, assume EXPIRED (return true)
-   * - This forces the app to attempt token refresh or re-authentication
-   * - Better to reject a valid token than accept an invalid one
-   *
-   * Why this matters:
-   * - Malformed tokens could indicate tampering or corruption
-   * - Signature verification prevents token forgery
-   * - Failure to parse = better to let server decide via authentication attempt
-   */
-  private isTokenExpired(token: string): boolean {
-    // Check if required decoding methods exist (for fail-secure behavior)
-    // If neither atob nor Buffer is available, we can't decode the token securely
-    if (typeof atob !== 'function' && typeof Buffer === 'undefined') {
-      return true; // Fail-secure: assume expired if we can't decode
-    }
-
-    try {
-      // Use JWT library to verify the token signature and expiration
-      // We use a dummy secret in decode (not verify) because we only want to check expiration
-      // without having to provide the real secret, which would be a security risk here
-      // The actual verification with the real secret happens on the server
-      const decoded = jwt.decode(token, { complete: true });
-
-      if (!decoded) {
-        return true; // Invalid JWT structure
-      }
-
-      // If the decoded token has a header and payload, check the expiration
-      if (typeof decoded === 'object' && decoded !== null) {
-        const payload = 'payload' in decoded ? decoded.payload : decoded;
-
-        if (payload && typeof payload === 'object' && 'exp' in payload) {
-          const exp = payload.exp as number | undefined;
-          if (typeof exp === 'number') {
-            // exp is in seconds, Date.now() is in ms
-            const currentTime = Math.floor(Date.now() / 1000);
-            return exp < currentTime;
-          }
-        }
-      }
-
-      // If no expiration claim, assume expired to force server validation (security by default)
-      return true;
-    } catch {
-      // Any parsing error = assume expired (fail-secure)
-      return true;
-    }
+  private isUserProfile(data: unknown): data is UserProfile {
+    if (!data || typeof data !== 'object') return false;
+    const profile = data as Partial<UserProfile>;
+    return typeof profile.id === 'string' && typeof profile.email === 'string';
   }
 
   private initializeInterceptors() {
