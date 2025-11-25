@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for utils/zodHelpers.ts</title>
+    <title>Code coverage report for utils/sanitizationUtils.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">utils</a> zodHelpers.ts</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">utils</a> sanitizationUtils.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.67% </span>
+                <span class="strong">69.76% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>42/43</span>
+                <span class='fraction'>30/43</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">11.11% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/6</span>
+                <span class='fraction'>1/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">76.92% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>10/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.67% </span>
+                <span class="strong">69.76% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>42/43</span>
+                <span class='fraction'>30/43</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -219,98 +219,8 @@
 <a name='L154'></a><a href='#L154'>154</a>
 <a name='L155'></a><a href='#L155'>155</a>
 <a name='L156'></a><a href='#L156'>156</a>
-<a name='L157'></a><a href='#L157'>157</a>
-<a name='L158'></a><a href='#L158'>158</a>
-<a name='L159'></a><a href='#L159'>159</a>
-<a name='L160'></a><a href='#L160'>160</a>
-<a name='L161'></a><a href='#L161'>161</a>
-<a name='L162'></a><a href='#L162'>162</a>
-<a name='L163'></a><a href='#L163'>163</a>
-<a name='L164'></a><a href='#L164'>164</a>
-<a name='L165'></a><a href='#L165'>165</a>
-<a name='L166'></a><a href='#L166'>166</a>
-<a name='L167'></a><a href='#L167'>167</a>
-<a name='L168'></a><a href='#L168'>168</a>
-<a name='L169'></a><a href='#L169'>169</a>
-<a name='L170'></a><a href='#L170'>170</a>
-<a name='L171'></a><a href='#L171'>171</a>
-<a name='L172'></a><a href='#L172'>172</a>
-<a name='L173'></a><a href='#L173'>173</a>
-<a name='L174'></a><a href='#L174'>174</a>
-<a name='L175'></a><a href='#L175'>175</a>
-<a name='L176'></a><a href='#L176'>176</a>
-<a name='L177'></a><a href='#L177'>177</a>
-<a name='L178'></a><a href='#L178'>178</a>
-<a name='L179'></a><a href='#L179'>179</a>
-<a name='L180'></a><a href='#L180'>180</a>
-<a name='L181'></a><a href='#L181'>181</a>
-<a name='L182'></a><a href='#L182'>182</a>
-<a name='L183'></a><a href='#L183'>183</a>
-<a name='L184'></a><a href='#L184'>184</a>
-<a name='L185'></a><a href='#L185'>185</a>
-<a name='L186'></a><a href='#L186'>186</a>
-<a name='L187'></a><a href='#L187'>187</a>
-<a name='L188'></a><a href='#L188'>188</a>
-<a name='L189'></a><a href='#L189'>189</a>
-<a name='L190'></a><a href='#L190'>190</a>
-<a name='L191'></a><a href='#L191'>191</a>
-<a name='L192'></a><a href='#L192'>192</a>
-<a name='L193'></a><a href='#L193'>193</a>
-<a name='L194'></a><a href='#L194'>194</a>
-<a name='L195'></a><a href='#L195'>195</a>
-<a name='L196'></a><a href='#L196'>196</a>
-<a name='L197'></a><a href='#L197'>197</a>
-<a name='L198'></a><a href='#L198'>198</a>
-<a name='L199'></a><a href='#L199'>199</a>
-<a name='L200'></a><a href='#L200'>200</a>
-<a name='L201'></a><a href='#L201'>201</a>
-<a name='L202'></a><a href='#L202'>202</a>
-<a name='L203'></a><a href='#L203'>203</a>
-<a name='L204'></a><a href='#L204'>204</a>
-<a name='L205'></a><a href='#L205'>205</a>
-<a name='L206'></a><a href='#L206'>206</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L157'></a><a href='#L157'>157</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -320,112 +230,81 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
@@ -433,6 +312,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -442,6 +322,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -449,236 +336,202 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * Path: src/features/auth/utils/zodHelpers.ts
- * Version: 1.0.0
- *
- * Advanced Zod validation helpers providing detailed error messages and
- * structured validation results. Useful for API responses and complex validation scenarios.
+ * Input sanitization utilities to prevent injection attacks
  */
 &nbsp;
-import { z } from "zod";
-import {
-  LoginRequestSchema,
-  RegisterRequestSchema,
-  RequestOtpSchema,
-  VerifyOtpSchema,
-  CompleteRegistrationSchema,
-  CompletePasswordResetSchema,
-  AuthSessionSchema,
-  UserProfileSchema,
-  LoginResponseSchema,
-  RefreshResponseDataSchema,
-  validateSafe,
-  ValidationResult,
-} from "../schemas/validationSchemas";
-&nbsp;
-// ============================================================================
-// Detailed Validation Functions
-// ============================================================================
+import * as validator from 'validator';
 &nbsp;
 /**
- * Validate LoginRequest with detailed error messages
- * @returns Structured result with validation errors
+ * Sanitizes user input by removing potentially dangerous characters
+ * @param input The input string to sanitize
+ * @returns Sanitized string
  */
-export function validateLoginRequest(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof LoginRequestSchema&gt;&gt; {
-  return validateSafe(LoginRequestSchema, data);
-}
-&nbsp;
-/**
- * Validate RegisterRequest with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateRegisterRequest(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof RegisterRequestSchema&gt;&gt; {
-  return validateSafe(RegisterRequestSchema, data);
-}
-&nbsp;
-/**
- * Validate RequestOtp with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateRequestOtp(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof RequestOtpSchema&gt;&gt; {
-  return validateSafe(RequestOtpSchema, data);
-}
-&nbsp;
-/**
- * Validate VerifyOtp with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateVerifyOtp(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof VerifyOtpSchema&gt;&gt; {
-  return validateSafe(VerifyOtpSchema, data);
-}
-&nbsp;
-/**
- * Validate CompleteRegistration with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateCompleteRegistration(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof CompleteRegistrationSchema&gt;&gt; {
-  return validateSafe(CompleteRegistrationSchema, data);
-}
-&nbsp;
-/**
- * Validate CompletePasswordReset with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateCompletePasswordReset(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof CompletePasswordResetSchema&gt;&gt; {
-  return validateSafe(CompletePasswordResetSchema, data);
-}
-&nbsp;
-/**
- * Validate AuthSession with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateAuthSession(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof AuthSessionSchema&gt;&gt; {
-  return validateSafe(AuthSessionSchema, data);
-}
-&nbsp;
-/**
- * Validate UserProfile with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateUserProfile(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof UserProfileSchema&gt;&gt; {
-  return validateSafe(UserProfileSchema, data);
-}
-&nbsp;
-/**
- * Validate LoginResponse with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateLoginResponse(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof LoginResponseSchema&gt;&gt; {
-  return validateSafe(LoginResponseSchema, data);
-}
-&nbsp;
-/**
- * Validate RefreshResponseData with detailed error messages
- * @returns Structured result with validation errors
- */
-export function validateRefreshResponseData(
-  data: unknown
-): ValidationResult&lt;z.infer&lt;typeof RefreshResponseDataSchema&gt;&gt; {
-  return validateSafe(RefreshResponseDataSchema, data);
-}
-&nbsp;
-// ============================================================================
-// Error Message Formatting
-// ============================================================================
-&nbsp;
-/**
- * Format validation errors into a human-readable error message
- * @param errors - Error record from ValidationResult
- * @returns Formatted error message
- */
-export function formatValidationErrors(
-  errors: Record&lt;string, string[]&gt;
-): string {
-  const messages = Object.entries(errors).map(([field, fieldErrors]) =&gt; {
-    const fieldName = field === "root" ? "Input" : field;
-    return `${fieldName}: ${fieldErrors.join(", ")}`;
-  });
-&nbsp;
-  return messages.join("; ");
-}
-&nbsp;
-/**
- * Get the first error message from a ValidationResult
- * @param result - ValidationResult from any validation function
- * @returns First error message, or undefined if validation passed
- */
-export function getFirstValidationError(
-  result: ValidationResult&lt;unknown&gt;
-): string | undefined {
-  if (result.success) {
-    return undefined;
+export function <span class="fstat-no" title="function not covered" >sanitizeInput(</span>input: string): string {
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof input !== 'string') {</span>
+<span class="cstat-no" title="statement not covered" >    return '';</span>
   }
-&nbsp;
-  const errorKeys = Object.keys(result.errors);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (errorKeys.length === 0) {
-<span class="cstat-no" title="statement not covered" >    return undefined;</span>
-  }
-&nbsp;
-  const firstKey = errorKeys[0];
-  return result.errors[firstKey][0];
-}
-&nbsp;
-// ============================================================================
-// Batch Validation
-// ============================================================================
-&nbsp;
-/**
- * Type for batch validation result
- */
-export interface BatchValidationResult&lt;T&gt; {
-  valid: T[];
-  invalid: { data: unknown; errors: Record&lt;string, string[]&gt; }[];
+  
+  // Remove or escape potentially dangerous characters
+  // This is a basic sanitization - implement more comprehensive as needed
+<span class="cstat-no" title="statement not covered" >  return input</span>
+    .replace(/&lt;/g, '&amp;lt;')   // Prevent HTML injection
+    .replace(/&gt;/g, '&amp;gt;')   // Prevent HTML injection
+    .replace(/"/g, '&amp;quot;') // Prevent attribute escaping
+    .replace(/'/g, '&amp;#x27;') // Prevent attribute escaping
+    .replace(/\//g, '&amp;#x2F;') // Prevent closing tags
+    .trim(); // Remove leading/trailing whitespace
 }
 &nbsp;
 /**
- * Validate an array of items, separating valid from invalid
- * @param schema - Zod schema to validate against
- * @param items - Array of items to validate
- * @returns Object with separate arrays of valid and invalid items
+ * Sanitizes an email address
+ * @param email The email to sanitize
+ * @returns Sanitized email or empty string if invalid
  */
-export function validateBatch&lt;T&gt;(
-  schema: z.ZodSchema&lt;T&gt;,
-  items: unknown[]
-): BatchValidationResult&lt;T&gt; {
-  const valid: T[] = [];
-  const invalid: { data: unknown; errors: Record&lt;string, string[]&gt; }[] = [];
-&nbsp;
-  for (const item of items) {
-    const result = validateSafe(schema, item);
-    if (result.success) {
-      valid.push(result.data);
-    } else {
-      invalid.push({ data: item, errors: result.errors });
-    }
+export function sanitizeEmail(email: string): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof email !== 'string') {
+<span class="cstat-no" title="statement not covered" >    return '';</span>
   }
-&nbsp;
-  return { valid, invalid };
+  
+  // Use validator to normalize and validate email
+  const normalized = validator.normalizeEmail(email);
+  return normalized || <span class="branch-1 cbranch-no" title="branch not covered" >'';</span>
 }
-&nbsp;</pre></td></tr></table></pre>
+&nbsp;
+/**
+ * Sanitizes a password (removes only dangerous characters while preserving strength)
+ * @param password The password to sanitize
+ * @returns Sanitized password
+ */
+export function sanitizePassword(password: string): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof password !== 'string') {
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  
+  // Don't overly restrict password chars as this might reduce entropy
+  // Just remove potentially dangerous characters
+  return password.replace(/['"]/g, '');
+}
+&nbsp;
+/**
+ * Sanitizes user profile name
+ * @param name The name to sanitize
+ * @returns Sanitized name
+ */
+export function <span class="fstat-no" title="function not covered" >sanitizeName(</span>name: string): string {
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof name !== 'string') {</span>
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  
+<span class="cstat-no" title="statement not covered" >  return validator.escape(name).trim();</span>
+}
+&nbsp;
+/**
+ * Sanitizes a general text field
+ * @param text The text to sanitize
+ * @returns Sanitized text
+ */
+export function <span class="fstat-no" title="function not covered" >sanitizeText(</span>text: string): string {
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof text !== 'string') {</span>
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  
+<span class="cstat-no" title="statement not covered" >  return validator.escape(text).trim();</span>
+}
+&nbsp;
+/**
+ * Sanitizes an OTP code (only allow digits and limit length)
+ * @param otp The OTP to sanitize
+ * @returns Sanitized OTP
+ */
+export function sanitizeOtp(otp: string): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof otp !== 'string') {
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  
+  // Only allow digits and ensure it's not too long
+  const digitsOnly = otp.replace(/\D/g, '').substring(0, 10);
+  return digitsOnly;
+}
+&nbsp;
+/**
+ * Sanitizes an action token
+ * @param token The token to sanitize
+ * @returns Sanitized token
+ */
+export function sanitizeActionToken(token: string): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof token !== 'string') {
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  
+  // Remove potential dangerous characters but keep token format
+  return token.replace(/['"&lt;&gt;]/g, '').trim();
+}
+&nbsp;
+/**
+ * Sanitizes a complete input object by applying appropriate sanitization to each field
+ * @param input The input object to sanitize
+ * @returns Sanitized input object
+ */
+export function sanitizeLoginRequest(input: { email: string; password: string }): { email: string; password: string } {
+  return {
+    email: sanitizeEmail(input.email),
+    password: sanitizePassword(input.password)
+  };
+}
+&nbsp;
+export function sanitizeRegisterRequest(input: { email: string; password: string }): { email: string; password: string } {
+  return {
+    email: sanitizeEmail(input.email),
+    password: sanitizePassword(input.password)
+  };
+}
+&nbsp;
+export function sanitizeRequestOtp(input: { email: string }): { email: string } {
+  return {
+    email: sanitizeEmail(input.email)
+  };
+}
+&nbsp;
+export function sanitizeVerifyOtp(input: { email: string; otp: string }): { email: string; otp: string } {
+  return {
+    email: sanitizeEmail(input.email),
+    otp: sanitizeOtp(input.otp)
+  };
+}
+&nbsp;
+export function sanitizeCompleteRegistration(input: { actionToken: string; newPassword: string }): { actionToken: string; newPassword: string } {
+  return {
+    actionToken: sanitizeActionToken(input.actionToken),
+    newPassword: sanitizePassword(input.newPassword)
+  };
+}
+&nbsp;
+export function sanitizeCompletePasswordReset(input: { actionToken: string; newPassword: string }): { actionToken: string; newPassword: string } {
+  return {
+    actionToken: sanitizeActionToken(input.actionToken),
+    newPassword: sanitizePassword(input.newPassword)
+  };
+}</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
