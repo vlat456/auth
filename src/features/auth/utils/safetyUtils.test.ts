@@ -3,10 +3,8 @@
  */
 
 import {
-  hasRequiredProperties,
   isAuthSession,
   isUserProfile,
-  safeGetNestedValue,
   safeArrayAccess,
   isValidLoginRequest,
   safeExtractActionToken,
@@ -22,103 +20,6 @@ import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 type ExtendedLoginRequestDTO = LoginRequestDTO & Record<string, unknown>;
 
 describe("Safety Utilities", () => {
-  describe("hasRequiredProperties", () => {
-    it("should return true when object has all required properties", () => {
-      const obj = { email: "test@example.com", password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(true);
-    });
-
-    it("should return false when object is null", () => {
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(null, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when object is not an object", () => {
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(
-        "not an object",
-        ["email", "password"]
-      );
-      expect(result).toBe(false);
-    });
-
-    it("should return false when object is missing a required property", () => {
-      const obj = { email: "test@example.com" }; // missing password
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when object has required property but it's null", () => {
-      const obj = { email: null, password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when object has required property but it's undefined", () => {
-      const obj = { email: undefined, password: "password123" };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when given an array (security fix)", () => {
-      // SECURITY: Arrays should be rejected even though typeof [] === 'object'
-      const arr = ["email", "password"];
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when given an array with numeric string indices", () => {
-      // SECURITY: Array with numeric properties should still be rejected
-      const arr = ["test@example.com", "password123"] as any;
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return false when given an array of objects", () => {
-      // SECURITY: Nested array structure should be rejected
-      const arr = [{ email: "test@example.com", password: "password123" }];
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(arr, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(false);
-    });
-
-    it("should return true for regular objects with properties", () => {
-      const obj = {
-        email: "test@example.com",
-        password: "password123",
-        extra: "field",
-      };
-      const result = hasRequiredProperties<ExtendedLoginRequestDTO>(obj, [
-        "email",
-        "password",
-      ]);
-      expect(result).toBe(true);
-    });
-  });
-
   describe("isAuthSession", () => {
     it("should return true for valid AuthSession", () => {
       const session: AuthSession = { accessToken: "token123" };
@@ -172,43 +73,6 @@ describe("Safety Utilities", () => {
     it("should return false for non-string email", () => {
       const profile = { id: "1", email: 123 };
       expect(isUserProfile(profile)).toBe(false);
-    });
-  });
-
-  describe("safeGetNestedValue", () => {
-    it("should return nested value when path exists", () => {
-      const obj = { user: { profile: { name: "John" } } };
-      const result = safeGetNestedValue<string>(obj, "user.profile.name");
-      expect(result).toBe("John");
-    });
-
-    it("should return defaultValue when path doesn't exist", () => {
-      const obj = { user: { profile: { name: "John" } } };
-      const result = safeGetNestedValue<string>(
-        obj,
-        "user.profile.age",
-        "unknown"
-      );
-      expect(result).toBe("unknown");
-    });
-
-    it("should return undefined when path doesn't exist and no defaultValue", () => {
-      const obj = { user: { profile: { name: "John" } } };
-      const result = safeGetNestedValue<string>(obj, "user.profile.age");
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined for null object", () => {
-      const result = safeGetNestedValue<string>(null, "user.profile.name");
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined for non-object", () => {
-      const result = safeGetNestedValue<string>(
-        "not an object",
-        "user.profile.name"
-      );
-      expect(result).toBeUndefined();
     });
   });
 
@@ -298,38 +162,6 @@ describe("Safety Utilities", () => {
       // The function should catch and return undefined
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(safeExtractErrorMessage(null as any)).toBeUndefined();
-    });
-  });
-
-  describe("Extended Coverage - Safe Navigation", () => {
-    it("should handle nested path with deep objects", () => {
-      const obj = { a: { b: { c: "value" } } };
-      expect(safeGetNestedValue(obj, "a.b.c")).toBe("value");
-    });
-
-    it("should return undefined for missing intermediate path", () => {
-      const obj = { a: { c: "value" } };
-      expect(safeGetNestedValue(obj, "a.b.c")).toBeUndefined();
-    });
-
-    it("should handle null values in path", () => {
-      const obj = { a: null };
-      expect(safeGetNestedValue(obj, "a.b")).toBeUndefined();
-    });
-
-    it("should handle undefined values in path", () => {
-      const obj = { a: undefined };
-      expect(safeGetNestedValue(obj, "a.b")).toBeUndefined();
-    });
-
-    it("should access top-level properties", () => {
-      const obj = { name: "test" };
-      expect(safeGetNestedValue(obj, "name")).toBe("test");
-    });
-
-    it("should return undefined for missing top-level property", () => {
-      const obj = { name: "test" };
-      expect(safeGetNestedValue(obj, "age")).toBeUndefined();
     });
   });
 
@@ -539,49 +371,6 @@ describe("Safety Utilities", () => {
       it("should reject when email is not string", () => {
         const profile = { id: "user123", email: null };
         expect(isUserProfile(profile)).toBe(false);
-      });
-    });
-
-    describe("safeGetNestedValue edge cases", () => {
-      it("should get nested value with dot notation", () => {
-        const obj = { user: { profile: { name: "John" } } };
-        const result = safeGetNestedValue(obj, "user.profile.name");
-        expect(result).toBe("John");
-      });
-
-      it("should return default value for missing path", () => {
-        const obj = { user: { profile: { name: "John" } } };
-        const result = safeGetNestedValue(obj, "user.missing.name", "default");
-        expect(result).toBe("default");
-      });
-
-      it("should return undefined for missing path without default", () => {
-        const obj = { user: { profile: { name: "John" } } };
-        const result = safeGetNestedValue(obj, "user.missing.name");
-        expect(result).toBeUndefined();
-      });
-
-      it("should handle null in path", () => {
-        const obj = { user: null };
-        const result = safeGetNestedValue(obj, "user.name");
-        expect(result).toBeUndefined();
-      });
-
-      it("should handle non-object input", () => {
-        const result = safeGetNestedValue(null, "some.path", "default");
-        expect(result).toBe("default");
-      });
-
-      it("should handle undefined values in path", () => {
-        const obj = { user: undefined };
-        const result = safeGetNestedValue(obj, "user.name");
-        expect(result).toBeUndefined();
-      });
-
-      it("should get simple property", () => {
-        const obj = { name: "John" };
-        const result = safeGetNestedValue(obj, "name");
-        expect(result).toBe("John");
       });
     });
 

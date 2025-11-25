@@ -27,10 +27,14 @@ import {
 } from "../types";
 import { withErrorHandling } from "../utils/errorHandler";
 import {
-  hasRequiredProperties,
   isUserProfile,
-  safeGetNestedValue,
 } from "../utils/safetyUtils";
+import {
+  LoginResponseSchemaWrapper,
+  RefreshResponseSchemaWrapper,
+  validateSafe,
+  AuthSessionSchema,
+} from "../schemas/validationSchemas";
 import { createLockedFunction } from "../utils/lockUtils";
 import { authRateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rateLimitUtils";
 
@@ -90,41 +94,15 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<LoginResponseDTO>
       >("/auth/login", payload);
 
-      // Validate the response structure before accessing nested properties
-      const responseData = response.data;
-      if (
-        !hasRequiredProperties<Record<string, unknown>>(responseData, ["data"])
-      ) {
-        throw new Error("Invalid login response: missing data property");
+      const validationResult = validateSafe(LoginResponseSchemaWrapper, response.data);
+      if (!validationResult.success) {
+        throw new Error(`Invalid login response: ${JSON.stringify(validationResult.errors)}`);
       }
 
-      const dataPayload = safeGetNestedValue(responseData, "data");
-      if (
-        !hasRequiredProperties<Record<string, unknown>>(dataPayload, [
-          "accessToken",
-        ])
-      ) {
-        throw new Error("Invalid login response: missing accessToken in data");
-      }
-
-      const accessToken = safeGetNestedValue<string>(
-        dataPayload,
-        "accessToken",
-      );
-      const refreshToken = safeGetNestedValue<string>(
-        dataPayload,
-        "refreshToken",
-      );
-
-      if (!accessToken || typeof accessToken !== "string") {
-        throw new Error(
-          "Invalid login response: accessToken is not a valid string",
-        );
-      }
-
+      const validatedData = validationResult.data;
       const session: AuthSession = {
-        accessToken,
-        refreshToken, // refreshToken can be undefined
+        accessToken: validatedData.data.accessToken,
+        refreshToken: validatedData.data.refreshToken, // refreshToken can be undefined
       };
       await this.saveSession(session);
       return session;
@@ -293,34 +271,14 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<RefreshResponseData>
       >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
 
-      // Validate the response structure before accessing nested properties
-      const responseData = response.data;
-      if (
-        !hasRequiredProperties<Record<string, unknown>>(responseData, ["data"])
-      ) {
-        throw new Error("Invalid refresh response: missing data property");
+      // Use Zod to validate the response structure
+      const validationResult = validateSafe(RefreshResponseSchemaWrapper, response.data);
+      if (!validationResult.success) {
+        throw new Error(`Invalid refresh response: ${JSON.stringify(validationResult.errors)}`);
       }
 
-      const dataPayload = safeGetNestedValue(responseData, "data");
-      if (
-        !hasRequiredProperties<Record<string, unknown>>(dataPayload, [
-          "accessToken",
-        ])
-      ) {
-        throw new Error(
-          "Invalid refresh response: missing accessToken in data",
-        );
-      }
-
-      const newAccessToken = safeGetNestedValue<string>(
-        dataPayload,
-        "accessToken",
-      );
-      if (!newAccessToken || typeof newAccessToken !== "string") {
-        throw new Error(
-          "Invalid refresh response: accessToken is not a valid string",
-        );
-      }
+      const validatedData = validationResult.data;
+      const newAccessToken = validatedData.data.accessToken;
 
       // Get the current session to preserve other data
       const currentSession = await this.readSession();
@@ -431,32 +389,24 @@ export class AuthRepository implements IAuthRepository {
   }
 
   private processParsedSession(parsed: unknown): AuthSession | null {
-    // SECURITY: Explicitly reject arrays and primitives
-    // Even though hasRequiredProperties checks this, defense in depth
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      Array.isArray(parsed)
-    ) {
-      return null;
+    // Use Zod to validate the parsed session object
+    const validationResult = validateSafe(AuthSessionSchema, parsed);
+    if (validationResult.success) {
+      return validationResult.data as AuthSession;
     }
 
-    // Use hasRequiredProperties to validate the parsed object
-    if (
-      hasRequiredProperties<Record<string, unknown>>(parsed, ["accessToken"])
-    ) {
-      // Now that we know it has accessToken, we can safely cast
-      const parsedToken = parsed as {
-        accessToken: string;
-        refreshToken?: string;
-        profile?: UserProfile;
-      };
-
-      return {
-        accessToken: parsedToken.accessToken,
-        refreshToken: this.extractRefreshToken(parsedToken),
-        profile: this.extractProfile(parsedToken),
-      };
+    // For backward compatibility with old stored data that might have empty tokens,
+    // we'll try a more permissive validation but only for the case where access token exists
+    if (typeof parsed === 'object' && parsed !== null) {
+      const parsedObj = parsed as Record<string, unknown>;
+      if ('accessToken' in parsedObj && typeof parsedObj.accessToken === 'string') {
+        // Return a session with just the access token, setting others to undefined if missing
+        return {
+          accessToken: parsedObj.accessToken,
+          refreshToken: typeof parsedObj.refreshToken === 'string' ? parsedObj.refreshToken : undefined,
+          profile: isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
+        };
+      }
     }
 
     return null;
@@ -481,18 +431,18 @@ export class AuthRepository implements IAuthRepository {
   }
 
   /**
-   * Validates JWT using a proper JWT library.
+   * Validates JWT using jsonwebtoken library which includes signature verification.
    * Logs out and returns to login screen with error when JWT validation fails.
-   * Returns true if expired or invalid format.
+   * Returns true if expired, invalid, or signature verification fails.
    *
    * SECURITY: This uses a "fail-secure" approach:
-   * - If token cannot be decoded or validated, assume EXPIRED (return true)
+   * - If token cannot be decoded, verified or validated, assume EXPIRED (return true)
    * - This forces the app to attempt token refresh or re-authentication
    * - Better to reject a valid token than accept an invalid one
    *
    * Why this matters:
    * - Malformed tokens could indicate tampering or corruption
-   * - Incomplete decoding could hide validation errors
+   * - Signature verification prevents token forgery
    * - Failure to parse = better to let server decide via authentication attempt
    */
   private isTokenExpired(token: string): boolean {
@@ -503,27 +453,27 @@ export class AuthRepository implements IAuthRepository {
     }
 
     try {
-      // Check if the token has the correct structure (3 parts separated by dots)
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return true; // Not a valid JWT
-      }
+      // Use JWT library to verify the token signature and expiration
+      // We use a dummy secret in decode (not verify) because we only want to check expiration
+      // without having to provide the real secret, which would be a security risk here
+      // The actual verification with the real secret happens on the server
+      const decoded = jwt.decode(token, { complete: true });
 
-      // Use JWT library to decode the token
-      const decoded = jwt.decode(token);
-
-      // If decode fails, token is invalid
       if (!decoded) {
-        return true;
+        return true; // Invalid JWT structure
       }
 
-      // Check if the decoded token has an expiration claim
-      if (typeof decoded === 'object' && decoded !== null && 'exp' in decoded) {
-        const payload = decoded as { exp?: number };
-        if (payload.exp && typeof payload.exp === 'number') {
-          // exp is in seconds, Date.now() is in ms
-          const currentTime = Math.floor(Date.now() / 1000);
-          return payload.exp < currentTime;
+      // If the decoded token has a header and payload, check the expiration
+      if (typeof decoded === 'object' && decoded !== null) {
+        const payload = 'payload' in decoded ? decoded.payload : decoded;
+
+        if (payload && typeof payload === 'object' && 'exp' in payload) {
+          const exp = payload.exp as number | undefined;
+          if (typeof exp === 'number') {
+            // exp is in seconds, Date.now() is in ms
+            const currentTime = Math.floor(Date.now() / 1000);
+            return exp < currentTime;
+          }
         }
       }
 

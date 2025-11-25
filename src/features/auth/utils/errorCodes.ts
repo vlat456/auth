@@ -40,7 +40,13 @@ export enum AuthErrorCode {
   // Rate limiting
   TOO_MANY_REQUESTS = 'AUTH_501',
   RATE_LIMIT_EXCEEDED = 'AUTH_502',
-  
+
+  // Additional API error codes
+  VALIDATION_ERROR = 'AUTH_601',
+  UNAUTHORIZED = 'AUTH_602',
+  FORBIDDEN = 'AUTH_603',
+  NOT_FOUND = 'AUTH_604',
+
   // Server errors
   SERVER_ERROR = 'AUTH_999',
 }
@@ -82,7 +88,13 @@ export const ErrorMessages: Record<AuthErrorCode, string> = {
   // Rate limiting
   [AuthErrorCode.TOO_MANY_REQUESTS]: 'Too many requests, please try again later',
   [AuthErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
-  
+
+  // Additional API error messages
+  [AuthErrorCode.VALIDATION_ERROR]: 'Validation error occurred',
+  [AuthErrorCode.UNAUTHORIZED]: 'Unauthorized access',
+  [AuthErrorCode.FORBIDDEN]: 'Access forbidden',
+  [AuthErrorCode.NOT_FOUND]: 'Resource not found',
+
   // Server errors
   [AuthErrorCode.SERVER_ERROR]: 'Server error occurred',
 };

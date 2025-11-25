@@ -1,96 +1,127 @@
 import axios, { AxiosError } from "axios";
-import { safeGetNestedValue } from "./safetyUtils";
 import { AuthErrorCode, ErrorMessages } from "./errorCodes";
 
 /**
- * Handles API errors and throws a user-friendly error
- * Implements security measures to prevent information disclosure while maintaining test compatibility
+ * Custom error class that preserves original error context while providing user-friendly messages
+ */
+export class ApiError extends Error {
+  public originalError?: unknown;
+  public status?: number;
+  public code?: string;
+  public response?: any;
+
+  constructor(
+    message: string,
+    options?: {
+      originalError?: unknown;
+      status?: number;
+      code?: string;
+      response?: any;
+    }
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.originalError = options?.originalError;
+    this.status = options?.status;
+    this.code = options?.code;
+    this.response = options?.response;
+
+    // Maintain proper stack trace for the error
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ApiError);
+    }
+  }
+}
+
+/**
+ * Handles API errors preserving original error context while making it available for state machine transitions
  * @param error The error object to handle
- * @throws Always throws an error - never returns
+ * @throws ApiError with preserved context
  */
 export function handleApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
-    const response = (error as AxiosError).response;
+    const axiosError = error as AxiosError;
+    const response = axiosError.response;
 
-    // Check status codes to determine appropriate error code
+    // Extract status code and response data
+    const status = response?.status;
+    const responseData = response?.data as Record<string, unknown> | undefined;
+    const messageField = responseData?.message as string | undefined;
+    const errorField = responseData?.error as string | undefined;
+
+    // Create a user-friendly message based on status code
+    let userMessage = ErrorMessages[AuthErrorCode.GENERAL_ERROR];
+
     if (response) {
-      // For tests to work properly, we still need to handle response body messages
-      const responseData = response.data;
-      const messageField = safeGetNestedValue<string>(responseData, 'message');
-      const errorField = safeGetNestedValue<string>(responseData, 'error');
-
-      switch (response.status) {
+      switch (status) {
         case 400:
-          // For 400 errors, return appropriate message but avoid information disclosure
-          if (typeof messageField === "string" && messageField) {
-            // In production, we'd return a generic message, but for test compatibility we return the field
-            // In a real implementation, you'd want to filter sensitive information here
-            throw new Error(messageField);
-          }
-          // If no message field, fall through to axios error message fallback
+          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.VALIDATION_ERROR];
           break;
         case 401:
-          // For 401 errors, return appropriate message but avoid information disclosure
-          if (typeof messageField === "string" && messageField) {
-            // In production, we'd return a generic message, but for test compatibility we return the field
-            throw new Error(messageField);
-          }
-          // If no message field, fall through to axios error message fallback
+          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.UNAUTHORIZED];
           break;
         case 403:
-          if (typeof messageField === "string" && messageField) {
-            throw new Error(messageField);
-          }
-          // If no message field, fall through to axios error message fallback
+          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.FORBIDDEN];
           break;
         case 404:
-          if (typeof messageField === "string" && messageField) {
-            throw new Error(messageField);
-          }
-          // If no message field, fall through to axios error message fallback
+          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.NOT_FOUND];
           break;
         case 429:
-          throw new Error(ErrorMessages[AuthErrorCode.TOO_MANY_REQUESTS]);
+          userMessage = messageField || ErrorMessages[AuthErrorCode.TOO_MANY_REQUESTS];
+          break;
         case 500:
         case 502:
         case 503:
         case 504:
-          // For server errors, avoid returning internal details
-          if (typeof errorField === "string" && errorField &&
-              (errorField.toLowerCase().includes('internal') || errorField.toLowerCase().includes('error'))) {
-            throw new Error(ErrorMessages[AuthErrorCode.SERVER_ERROR]);
-          }
-          throw new Error(ErrorMessages[AuthErrorCode.SERVER_ERROR]);
-        default:
-          // For other status codes, check if there's a general message to return
-          if (typeof messageField === "string" && messageField) {
-            // In production we'd be more restrictive, but maintaining test compatibility
-            throw new Error(messageField);
-          }
-          // If no message field, fall through to axios error message fallback
+          userMessage = messageField ||
+            (errorField &&
+              (errorField.toLowerCase().includes('internal') || errorField.toLowerCase().includes('error'))
+              ? ErrorMessages[AuthErrorCode.SERVER_ERROR]
+              : ErrorMessages[AuthErrorCode.SERVER_ERROR]);
           break;
-      }
-
-      // After handling status codes, if we didn't throw an error yet, fall back to axios message
-      // Fall back to the error message from the axios error when there's no response or no specific message
-      if (typeof (error as AxiosError).message === "string" && (error as AxiosError).message) {
-        // For test compatibility, return the original message (some tests expect specific network messages)
-        throw new Error((error as AxiosError).message);
+        default:
+          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.GENERAL_ERROR];
       }
     } else {
-      // If no response at all, fall back to axios error message
-      if (typeof (error as AxiosError).message === "string" && (error as AxiosError).message) {
-        // For test compatibility, return the original message (some tests expect specific network messages)
-        throw new Error((error as AxiosError).message);
-      }
+      // Network errors (no response)
+      userMessage = axiosError.message || ErrorMessages[AuthErrorCode.GENERAL_ERROR];
     }
 
-    // Default fallback
-    throw new Error(ErrorMessages[AuthErrorCode.GENERAL_ERROR]);
+    // Create ApiError with preserved context
+    throw new ApiError(userMessage, {
+      originalError: error,
+      status: status,
+      response: response,
+      code: getAuthErrorCodeFromStatus(status)
+    });
   }
 
-  // Non-axios errors - should return generic message as per test expectations
-  throw new Error(ErrorMessages[AuthErrorCode.GENERAL_ERROR]);
+  // Handle non-axios errors
+  const errorMessage = (error instanceof Error) ? error.message : ErrorMessages[AuthErrorCode.GENERAL_ERROR];
+  throw new ApiError(ErrorMessages[AuthErrorCode.GENERAL_ERROR], {
+    originalError: error,
+    code: AuthErrorCode.GENERAL_ERROR
+  });
+}
+
+/**
+ * Maps HTTP status codes to AuthErrorCode for state machine logic
+ */
+function getAuthErrorCodeFromStatus(status?: number): AuthErrorCode | undefined {
+  if (!status) return undefined;
+
+  switch (status) {
+    case 400: return AuthErrorCode.VALIDATION_ERROR;
+    case 401: return AuthErrorCode.UNAUTHORIZED;
+    case 403: return AuthErrorCode.FORBIDDEN;
+    case 404: return AuthErrorCode.NOT_FOUND;
+    case 429: return AuthErrorCode.TOO_MANY_REQUESTS;
+    case 500:
+    case 502:
+    case 503:
+    case 504: return AuthErrorCode.SERVER_ERROR;
+    default: return undefined;
+  }
 }
 
 /**

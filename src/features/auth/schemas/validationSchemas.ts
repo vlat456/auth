@@ -210,7 +210,20 @@ export const ApiSuccessResponseSchema = z.object({
   status: z.number().int().positive("Status must be positive"),
   message: z.string(),
   data: z.unknown(),
-}) satisfies z.ZodType<ApiSuccessResponse>;
+}) satisfies z.ZodType<ApiSuccessResponse<unknown>>;
+
+// Specific response schemas
+export const LoginResponseSchemaWrapper = z.object({
+  status: z.number(),
+  message: z.string(),
+  data: LoginResponseSchema,
+}) satisfies z.ZodType<ApiSuccessResponse<LoginResponseDTO>>;
+
+export const RefreshResponseSchemaWrapper = z.object({
+  status: z.number(),
+  message: z.string(),
+  data: RefreshResponseDataSchema,
+}) satisfies z.ZodType<ApiSuccessResponse<RefreshResponseData>>;
 
 export const ApiErrorResponseSchema = z.object({
   status: z.number().int().positive("Status must be positive"),

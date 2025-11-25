@@ -1,6 +1,11 @@
 import axios from "axios";
-import { handleApiError, withErrorHandling } from "./errorHandler";
+import { handleApiError, withErrorHandling, ApiError } from "./errorHandler";
 import { AuthErrorCode, ErrorMessages } from "./errorCodes";
+
+// Define fail function for tests
+const fail = (message: string) => {
+  throw new Error(message);
+};
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -18,7 +23,13 @@ describe("errorHandler", () => {
       };
       mockedAxios.isAxiosError.mockReturnValue(true);
 
-      expect(() => handleApiError(axiosError)).toThrow("Server exploded");
+      try {
+        handleApiError(axiosError);
+        fail('Expected ApiError to be thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error.message).toBe("Server exploded");
+      }
     });
 
     it("should fall back to axios error message when no server message", () => {
@@ -28,7 +39,13 @@ describe("errorHandler", () => {
       };
       mockedAxios.isAxiosError.mockReturnValue(true);
 
-      expect(() => handleApiError(axiosError)).toThrow("Axios error occurred");
+      try {
+        handleApiError(axiosError);
+        fail('Expected ApiError to be thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error.message).toBe("Axios error occurred");
+      }
     });
 
     it("should throw generic message when no meaningful message exists", () => {
@@ -38,25 +55,37 @@ describe("errorHandler", () => {
       };
       mockedAxios.isAxiosError.mockReturnValue(true);
 
-      expect(() => handleApiError(axiosError)).toThrow(
-        "An unexpected error occurred"
-      );
+      try {
+        handleApiError(axiosError);
+        fail('Expected ApiError to be thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error.message).toBe("An unexpected error occurred");
+      }
     });
 
     it("should throw generic message when not an Axios error", () => {
       mockedAxios.isAxiosError.mockReturnValue(false);
 
-      expect(() => handleApiError(new Error("boom"))).toThrow(
-        "An unexpected error occurred"
-      );
+      try {
+        handleApiError(new Error("boom"));
+        fail('Expected ApiError to be thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error.message).toBe("An unexpected error occurred");
+      }
     });
 
     it("should throw generic message for non-axios error", () => {
       mockedAxios.isAxiosError.mockReturnValue(false);
 
-      expect(() => handleApiError("some string error")).toThrow(
-        "An unexpected error occurred"
-      );
+      try {
+        handleApiError("some string error");
+        fail('Expected ApiError to be thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect(error.message).toBe("An unexpected error occurred");
+      }
     });
 
     it("should handle 400 status with message", () => {

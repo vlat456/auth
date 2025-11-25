@@ -1,41 +1,5 @@
-/**
- * Utility functions to safely handle potentially undefined values in the auth system
- */
-
 import { AuthEvent } from "../machine/authMachine";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
-
-/**
- * To check if an object has specific required properties.
- *
- * SECURITY: Explicitly rejects arrays to prevent treating array data
- * as object properties. In JavaScript, arrays are objects (typeof [] === 'object'),
- * but they should not be treated as key-value stores for session data.
- *
- * Example vulnerability prevented:
- * - Data: ["token", "refresh"]
- * - Without array check: would pass and ["token"] would become accessToken
- * - With array check: correctly rejected
- */
-export function hasRequiredProperties<T extends Record<string, unknown>>(
-  obj: unknown,
-  requiredKeys: (keyof T)[]
-): obj is T {
-  // Reject non-objects, null, and ARRAYS
-  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
-    return false;
-  }
-
-  const objRecord = obj as Record<string, unknown>;
-  return requiredKeys.every((key) => {
-    const stringKey = key as string;
-    return (
-      stringKey in objRecord &&
-      objRecord[stringKey] !== undefined &&
-      objRecord[stringKey] !== null
-    );
-  });
-}
 
 import {
   LoginRequestSchema,
@@ -301,29 +265,6 @@ export function safeExtractPasswordFromPending(
     return pending.password;
   }
   return "";
-}
-
-/**
- * Safe navigation function for accessing nested properties
- */
-export function safeGetNestedValue<T>(
-  obj: unknown,
-  path: string,
-  defaultValue?: T
-): T | undefined {
-  if (typeof obj !== "object" || obj === null) return defaultValue;
-
-  const keys = path.split(".");
-  let current: any = obj;
-
-  for (const key of keys) {
-    if (current === null || current === undefined || !(key in current)) {
-      return defaultValue;
-    }
-    current = current[key];
-  }
-
-  return current as T;
 }
 
 /**
