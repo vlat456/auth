@@ -104,13 +104,15 @@ export function sanitizeEmail(email: string): string {
 - Removed deprecated code
 - All existing tests continue to pass
 
-### 3. Rate Limiting Implementation
+### 3. Rate Limiting Implementation - COMPLETED
+
+**Status**: FIXED - Refactoring completed successfully
 
 **Location**: `/src/features/auth/repositories/AuthRepository.ts`
 
-**Issue**: The same rate limiting pattern is repeated across multiple methods (login, register, requestPasswordReset).
+**Issue**: The same rate limiting pattern was repeated across multiple methods (login, register, requestPasswordReset).
 
-**Current Implementation**:
+**Previous Implementation**:
 ```typescript
 // In login method
 const emailKey = `login_${payload.email}`;
@@ -127,28 +129,58 @@ if (!rateLimitResult.allowed) {
 }
 ```
 
-**Recommendation**: Create a higher-order function or decorator for rate limiting:
+**Solution Implemented**: Created a centralized `applyRateLimit` method within the AuthRepository class:
+
 ```typescript
-const withRateLimiting = (keyPrefix: string, rateLimitConfig: RateLimitOptions) => {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-    const originalMethod = descriptor.value;
+/**
+ * Function to apply rate limiting to a method
+ */
+private async applyRateLimit(
+  email: string,
+  keyPrefix: string,
+  rateLimitConfig: typeof DEFAULT_RATE_LIMITS[keyof typeof DEFAULT_RATE_LIMITS]
+): Promise<void> {
+  const key = `${keyPrefix}_${email}`;
+  const rateLimitResult = authRateLimiter.check(key, rateLimitConfig);
 
-    descriptor.value = async function (...args: any[]) {
-      const email = args[0].email; // Assuming first param has email
-      const key = `${keyPrefix}_${email}`;
-      const rateLimitResult = authRateLimiter.check(key, rateLimitConfig);
-
-      if (!rateLimitResult.allowed) {
-        throw new Error(`Too many ${keyPrefix} attempts. Please try again later.`);
-      }
-
-      return originalMethod.apply(this, args);
-    };
-
-    return descriptor;
-  };
-};
+  if (!rateLimitResult.allowed) {
+    throw new Error(`Too many ${keyPrefix} attempts. Please try again later.`);
+  }
+}
 ```
+
+The methods now use this helper method:
+
+```typescript
+login = withErrorHandling(
+  async (payload: LoginRequestDTO): Promise<AuthSession> => {
+    await this.applyRateLimit(payload.email, 'login', DEFAULT_RATE_LIMITS.login);
+    // Main login logic without rate limiting boilerplate
+  }
+);
+
+register = withErrorHandling(
+  async (payload: RegisterRequestDTO): Promise<void> => {
+    await this.applyRateLimit(payload.email, 'register', DEFAULT_RATE_LIMITS.registration);
+    // Main registration logic without rate limiting boilerplate
+  }
+);
+
+requestPasswordReset = withErrorHandling(
+  async (payload: RequestOtpDTO): Promise<void> => {
+    await this.applyRateLimit(payload.email, 'otp_request', DEFAULT_RATE_LIMITS.otpRequest);
+    // Main OTP request logic without rate limiting boilerplate
+  }
+);
+```
+
+**Benefits Achieved**:
+- Eliminated code duplication for rate limiting logic
+- Improved maintainability by having single source of rate limiting implementation
+- Consistent error handling across methods
+- All existing tests continue to pass
+- Easier to add rate limiting to new methods
+- Cleaner method implementations with less boilerplate
 
 ### 4. Session Handling Logic
 
@@ -266,7 +298,7 @@ export const safeExtractVerifyOtpPayload = createSafeExtractFunction(VerifyOtpSc
 1. **Completed**: Refactored safe extraction functions to use generic pattern
 2. **Completed**: Created generic factory for validation functions
 3. **Completed**: Removed duplicate sanitization logic by eliminating deprecated sanitizationUtils.ts
-4. **High Priority**: Extract the rate limiting pattern into a reusable decorator/extension
+4. **Completed**: Extracted rate limiting pattern into reusable higher-order functions
 5. **Medium Priority**: Consolidate session handling logic
 
 ## Benefits of Refactoring

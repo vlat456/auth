@@ -77,18 +77,28 @@ export class AuthRepository implements IAuthRepository {
   }
 
   /**
+   * Function to apply rate limiting to a method
+   */
+  private async applyRateLimit(
+    email: string,
+    keyPrefix: string,
+    rateLimitConfig: typeof DEFAULT_RATE_LIMITS[keyof typeof DEFAULT_RATE_LIMITS]
+  ): Promise<void> {
+    const key = `${keyPrefix}_${email}`;
+    const rateLimitResult = authRateLimiter.check(key, rateLimitConfig);
+
+    if (!rateLimitResult.allowed) {
+      throw new Error(`Too many ${keyPrefix} attempts. Please try again later.`);
+    }
+  }
+
+  /**
    * Authenticates a user by email and password.
    * Returns an AuthSession with access token and optional refresh token.
    */
   login = withErrorHandling(
     async (payload: LoginRequestDTO): Promise<AuthSession> => {
-      // Check rate limit for login attempts
-      const emailKey = `login_${payload.email}`;
-      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.login);
-
-      if (!rateLimitResult.allowed) {
-        throw new Error("Too many login attempts. Please try again later.");
-      }
+      await this.applyRateLimit(payload.email, 'login', DEFAULT_RATE_LIMITS.login);
 
       const response = await this.apiClient.post<
         ApiSuccessResponse<LoginResponseDTO>
@@ -111,13 +121,7 @@ export class AuthRepository implements IAuthRepository {
 
   register = withErrorHandling(
     async (payload: RegisterRequestDTO): Promise<void> => {
-      // Check rate limit for registration attempts
-      const emailKey = `register_${payload.email}`;
-      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.registration);
-
-      if (!rateLimitResult.allowed) {
-        throw new Error("Too many registration attempts. Please try again later.");
-      }
+      await this.applyRateLimit(payload.email, 'register', DEFAULT_RATE_LIMITS.registration);
 
       await this.apiClient.post("/auth/register", payload);
     },
@@ -125,13 +129,7 @@ export class AuthRepository implements IAuthRepository {
 
   requestPasswordReset = withErrorHandling(
     async (payload: RequestOtpDTO): Promise<void> => {
-      // Check rate limit for OTP requests
-      const emailKey = `otp_request_${payload.email}`;
-      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.otpRequest);
-
-      if (!rateLimitResult.allowed) {
-        throw new Error("Too many OTP requests. Please try again later.");
-      }
+      await this.applyRateLimit(payload.email, 'otp_request', DEFAULT_RATE_LIMITS.otpRequest);
 
       await this.apiClient.post("/auth/otp/request", payload);
     },
