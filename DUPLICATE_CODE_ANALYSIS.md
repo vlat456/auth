@@ -3,15 +3,17 @@
 ## Overview
 This report identifies duplicate and extractable functionality in the authentication library codebase. The analysis focused on finding repeated patterns that could be extracted into reusable functions or components.
 
-## Findings
+## Findings and Updates
 
-### 1. Safe Extraction Functions
+### 1. Safe Extraction Functions - COMPLETED
+
+**Status**: FIXED - Refactoring completed successfully
 
 **Location**: `/src/features/auth/utils/safetyUtils.ts`
 
 **Issue**: Multiple similar functions following the same pattern for extracting specific values from event payloads.
 
-**Current Implementation**:
+**Previous Implementation**:
 ```typescript
 export function safeExtractEmail(event: AuthEvent): string | undefined {
   return safeExtractStringFromPayload(event, "email");
@@ -26,24 +28,54 @@ export function safeExtractNewPassword(event: AuthEvent): string | undefined {
 }
 ```
 
-**Recommendation**: Extract a generic function:
+**Solution Implemented**: Created a generic function that can be used by specific extractors:
+
 ```typescript
-export function safeExtractValue<T extends string | number | boolean>(
-  event: AuthEvent, 
-  key: string, 
-  typeGuard?: (value: unknown) => value is T
+/**
+ * Safely extract a value from an event payload with type validation
+ */
+export function safeExtractValue<T>(
+  event: AuthEvent,
+  key: string,
+  typeGuard: (value: unknown) => value is T
 ): T | undefined {
-  // Generic extraction logic here
+  const payload = safeExtractPayload(event);
+  if (payload && key in payload) {
+    const value = payload[key];
+    if (typeGuard(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Safely extract a string value from an event payload
+ */
+export function safeExtractStringFromPayload(
+  event: AuthEvent,
+  key: string
+): string | undefined {
+  return safeExtractValue(event, key, (value): value is string => typeof value === "string");
 }
 ```
 
-### 2. Input Sanitization Functions
+**Benefits Achieved**:
+- Reduced code duplication
+- Improved maintainability
+- Consistent error handling
+- Type safety preserved
+- All existing tests continue to pass
+
+### 2. Input Sanitization Functions - COMPLETED
+
+**Status**: FIXED - Refactoring completed successfully
 
 **Location**: `/src/features/auth/schemas/validationSchemas.ts` and `/src/features/auth/utils/sanitizationUtils.ts`
 
-**Issue**: Duplicate sanitization logic exists in both the validation schemas and the deprecated sanitization utilities file.
+**Issue**: Duplicate sanitization logic existed in both the validation schemas and the deprecated sanitization utilities file.
 
-**Current Implementation**:
+**Previous Implementation**:
 ```typescript
 // In validationSchemas.ts
 const sanitizeEmail = (email: string): string => {
@@ -63,10 +95,14 @@ export function sanitizeEmail(email: string): string {
 }
 ```
 
-**Recommendation**: 
-- Remove the deprecated sanitizationUtils.ts file
-- Consolidate all sanitization logic in validationSchemas.ts
-- Ensure consistency in sanitization methods
+**Solution Implemented**: Removed the deprecated sanitizationUtils.ts file entirely and all its test files since all sanitization now happens through Zod's transform methods in validationSchemas.ts. The approach is to have sanitization integrated with validation at the schema level rather than as separate utility functions.
+
+**Benefits Achieved**:
+- Eliminated duplicate sanitization logic
+- Improved maintainability by having single source of truth
+- All sanitization now happens during schema validation
+- Removed deprecated code
+- All existing tests continue to pass
 
 ### 3. Rate Limiting Implementation
 
@@ -96,19 +132,19 @@ if (!rateLimitResult.allowed) {
 const withRateLimiting = (keyPrefix: string, rateLimitConfig: RateLimitOptions) => {
   return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = async function (...args: any[]) {
       const email = args[0].email; // Assuming first param has email
       const key = `${keyPrefix}_${email}`;
       const rateLimitResult = authRateLimiter.check(key, rateLimitConfig);
-      
+
       if (!rateLimitResult.allowed) {
         throw new Error(`Too many ${keyPrefix} attempts. Please try again later.`);
       }
-      
+
       return originalMethod.apply(this, args);
     };
-    
+
     return descriptor;
   };
 };
@@ -137,24 +173,26 @@ return await this.validateSessionWithServer(session);
 ```typescript
 class SessionManager {
   constructor(private storage: IStorage) {}
-  
+
   async validateSession(): Promise<AuthSession | null> {
     // Common validation logic
   }
-  
+
   async refreshSessionIfExpired(session: AuthSession): Promise<AuthSession | null> {
     // Common refresh logic
   }
 }
 ```
 
-### 5. Validation with Schema Functions
+### 5. Validation with Schema Functions - COMPLETED
+
+**Status**: FIXED - Refactoring completed successfully
 
 **Location**: `/src/features/auth/utils/safetyUtils.ts`
 
 **Issue**: Multiple functions with the same pattern of extracting and validating payloads.
 
-**Current Implementation**:
+**Previous Implementation**:
 ```typescript
 export function safeExtractLoginPayload(
   event: AuthEvent
@@ -167,20 +205,45 @@ export function safeExtractRegisterPayload(
 ): { email: string; password: string } | undefined {
   return safeExtractAndValidatePayload(event, RegisterRequestSchema);
 }
+
+export function safeExtractOtpRequestPayload(
+  event: AuthEvent
+): { email: string } | undefined {
+  return safeExtractAndValidatePayload(event, RequestOtpSchema);
+}
+
+export function safeExtractVerifyOtpPayload(
+  event: AuthEvent
+): { email: string; otp: string } | undefined {
+  return safeExtractAndValidatePayload(event, VerifyOtpSchema);
+}
 ```
 
-**Recommendation**: Use a generic factory or generic function to generate these validation functions:
+**Solution Implemented**: Created a generic factory function that generates schema-based extraction functions:
+
 ```typescript
-const createSafeExtractFunction = <T>(schema: ZodSchema<T>) => {
+/**
+ * Factory function to create schema-based extraction functions
+ */
+export function createSafeExtractFunction<T>(schema: ZodSchema<T>) {
   return (event: AuthEvent): T | undefined => {
     return safeExtractAndValidatePayload(event, schema);
   };
-};
+}
 
 // Then generate the functions:
 export const safeExtractLoginPayload = createSafeExtractFunction(LoginRequestSchema);
 export const safeExtractRegisterPayload = createSafeExtractFunction(RegisterRequestSchema);
+export const safeExtractOtpRequestPayload = createSafeExtractFunction(RequestOtpSchema);
+export const safeExtractVerifyOtpPayload = createSafeExtractFunction(VerifyOtpSchema);
 ```
+
+**Benefits Achieved**:
+- Reduced code duplication significantly
+- Improved maintainability
+- Consistent error handling
+- Type safety preserved
+- All existing tests continue to pass
 
 ## Additional Observations
 
@@ -200,11 +263,11 @@ export const safeExtractRegisterPayload = createSafeExtractFunction(RegisterRequ
 
 ## Priority Recommendations
 
-1. **High Priority**: Remove duplicate sanitization logic (sanitizationUtils.ts is deprecated)
-2. **High Priority**: Extract the rate limiting pattern into a reusable decorator/extension
-3. **Medium Priority**: Refactor safe extraction functions to use a generic pattern
-4. **Medium Priority**: Consolidate session handling logic
-5. **Low Priority**: Create generic factory for validation functions
+1. **Completed**: Refactored safe extraction functions to use generic pattern
+2. **Completed**: Created generic factory for validation functions
+3. **Completed**: Removed duplicate sanitization logic by eliminating deprecated sanitizationUtils.ts
+4. **High Priority**: Extract the rate limiting pattern into a reusable decorator/extension
+5. **Medium Priority**: Consolidate session handling logic
 
 ## Benefits of Refactoring
 

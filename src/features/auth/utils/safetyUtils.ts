@@ -81,12 +81,35 @@ export function safeExtractAndValidatePayload<T>(
 }
 
 /**
+ * Factory function to create schema-based extraction functions
+ */
+export function createSafeExtractFunction<T>(schema: ZodSchema<T>) {
+  return (event: AuthEvent): T | undefined => {
+    return safeExtractAndValidatePayload(event, schema);
+  };
+}
+
+/**
  * Safely extract and validate login payload from event
  */
-export function safeExtractLoginPayload(
-  event: AuthEvent
-): LoginRequestDTO | undefined {
-  return safeExtractAndValidatePayload(event, LoginRequestSchema);
+export const safeExtractLoginPayload = createSafeExtractFunction(LoginRequestSchema);
+
+/**
+ * Safely extract a value from an event payload with type validation
+ */
+export function safeExtractValue<T>(
+  event: AuthEvent,
+  key: string,
+  typeGuard: (value: unknown) => value is T
+): T | undefined {
+  const payload = safeExtractPayload(event);
+  if (payload && key in payload) {
+    const value = payload[key];
+    if (typeGuard(value)) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -96,11 +119,7 @@ export function safeExtractStringFromPayload(
   event: AuthEvent,
   key: string
 ): string | undefined {
-  const payload = safeExtractPayload(event);
-  if (payload && typeof payload[key] === "string") {
-    return payload[key];
-  }
-  return undefined;
+  return safeExtractValue(event, key, (value): value is string => typeof value === "string");
 }
 
 /**
@@ -176,29 +195,17 @@ export function isValidVerifyOtp(
 /**
  * Safely extract and validate register payload from event
  */
-export function safeExtractRegisterPayload(
-  event: AuthEvent
-): { email: string; password: string } | undefined {
-  return safeExtractAndValidatePayload(event, RegisterRequestSchema);
-}
+export const safeExtractRegisterPayload = createSafeExtractFunction(RegisterRequestSchema);
 
 /**
  * Safely extract and validate OTP request payload from event
  */
-export function safeExtractOtpRequestPayload(
-  event: AuthEvent
-): { email: string } | undefined {
-  return safeExtractAndValidatePayload(event, RequestOtpSchema);
-}
+export const safeExtractOtpRequestPayload = createSafeExtractFunction(RequestOtpSchema);
 
 /**
  * Safely extract and validate verify OTP payload from event
  */
-export function safeExtractVerifyOtpPayload(
-  event: AuthEvent
-): { email: string; otp: string } | undefined {
-  return safeExtractAndValidatePayload(event, VerifyOtpSchema);
-}
+export const safeExtractVerifyOtpPayload = createSafeExtractFunction(VerifyOtpSchema);
 
 /**
  * Safely extract new password from RESET_PASSWORD event
