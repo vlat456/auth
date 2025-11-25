@@ -501,16 +501,16 @@ describe("Safety Utilities", () => {
         expect(isUserProfile(profile)).toBe(true);
       });
 
-      it("should accept profile with empty id string", () => {
-        // Implementation only checks type, not content
+      it("should reject profile with empty id string", () => {
+        // New behavior: rejects content that should not be empty
         const profile = { id: "", email: "test@example.com" };
-        expect(isUserProfile(profile)).toBe(true);
+        expect(isUserProfile(profile)).toBe(false);
       });
 
-      it("should accept profile with empty email string", () => {
-        // Implementation only checks type, not content
+      it("should reject profile with empty email string", () => {
+        // New behavior: rejects content that should not be empty
         const profile = { id: "user123", email: "" };
-        expect(isUserProfile(profile)).toBe(true);
+        expect(isUserProfile(profile)).toBe(false);
       });
 
       it("should reject profile with non-string fields", () => {
@@ -666,9 +666,9 @@ describe("Safety Utilities", () => {
     describe("safeExtractRegisterPayload", () => {
       it("should extract valid register payload from event", () => {
         const { safeExtractRegisterPayload } = require("./safetyUtils");
-        const event = { payload: { email: "test@example.com", password: "pass123" } };
+        const event = { payload: { email: "test@example.com", password: "pass1234" } };
         const result = safeExtractRegisterPayload(event);
-        expect(result).toEqual({ email: "test@example.com", password: "pass123" });
+        expect(result).toEqual({ email: "test@example.com", password: "pass1234" });
       });
 
       it("should return undefined for invalid payload object", () => {

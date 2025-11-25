@@ -297,7 +297,7 @@ describe("AuthRepository", () => {
 
       (mockStorage.getItem as jest.Mock).mockResolvedValue(validToken);
       mockAxiosInstance.get.mockResolvedValue({
-        data: { id: "1", email: "a" },
+        data: { id: "1", email: "test@example.com" },
       });
 
       const result = await repository.checkSession();

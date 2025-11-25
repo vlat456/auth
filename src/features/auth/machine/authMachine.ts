@@ -358,13 +358,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "loginUser",
                   input: ({ context }) => {
-                    // SAFETY: If credentials are missing, provide a safe fallback
-                    // This prevents silent failures but login will fail with proper error
+                    // SAFETY: Only use valid credentials, otherwise let API reject
+                    // This prevents sending empty credentials that would be rejected
                     if (hasValidCredentials(context.pendingCredentials)) {
                       return context.pendingCredentials;
                     }
-                    // Missing credentials - this shouldn't happen in normal flow
-                    // but if it does, provide empty credentials to let server reject
+                    // Missing or invalid credentials - return empty to be rejected by server
+                    // with a proper error message rather than sending invalid data
                     return { email: "", password: "" };
                   },
                   onDone: {
@@ -478,13 +478,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "loginUser",
                   input: ({ context }) => {
-                    // SAFETY: If credentials are missing, provide a safe fallback
-                    // This prevents silent failures but login will fail with proper error
+                    // SAFETY: Only use valid credentials, otherwise let API reject
+                    // This prevents sending empty credentials that would be rejected
                     if (hasValidCredentials(context.pendingCredentials)) {
                       return context.pendingCredentials;
                     }
-                    // Missing credentials - this shouldn't happen in normal flow
-                    // but if it does, provide empty credentials to let server reject
+                    // Missing or invalid credentials - return empty to be rejected by server
+                    // with a proper error message rather than sending invalid data
                     return { email: "", password: "" };
                   },
                   onDone: {

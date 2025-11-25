@@ -333,7 +333,7 @@ describe("Validation Schemas", () => {
 
     it("should reject with short access token", () => {
       const result = AuthSessionSchema.safeParse({
-        accessToken: "short",
+        accessToken: "sho", // 3 characters - less than required 5
       });
       expect(result.success).toBe(false);
     });

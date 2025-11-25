@@ -37,10 +37,17 @@ export function hasRequiredProperties<T extends Record<string, unknown>>(
   });
 }
 
-/**
- * Safely validate LoginRequestDTO
- */
-/* moved validator implementations further down to avoid use-before-define issues */
+import {
+  LoginRequestSchema,
+  RegisterRequestSchema,
+  VerifyOtpSchema,
+  RequestOtpSchema,
+  AuthSessionSchema,
+  UserProfileSchema,
+  validateSafe,
+  validateStrict
+} from "../schemas/validationSchemas";
+
 /**
  * Safely extract an error message from an XState error event.
  * Checks several possible locations where error messages may appear.
@@ -65,6 +72,7 @@ export function safeExtractErrorMessage(event: AuthEvent): string | undefined {
     }
   } catch {
     // swallow and return undefined
+    console.debug("Error extracting message");
   }
   return undefined;
 }
@@ -80,6 +88,8 @@ export function safeExtractPayload<T = Record<string, unknown>>(
     typeof event.payload === "object" &&
     event.payload !== null
   ) {
+    // Instead of unchecked cast, we could add validation based on expected type
+    // For now, we'll keep the cast but with better documentation
     return event.payload as T;
   }
   return undefined;
@@ -156,52 +166,30 @@ export function safeGetStringFromContext(
 }
 
 /**
- * Safely validate RegisterRequestDTO
+ * Safely validate RegisterRequestDTO using Zod schema as single source of truth
  */
 export function isValidRegisterRequest(
   payload: unknown
 ): payload is { email: string; password: string } {
-  if (typeof payload === "object" && payload !== null) {
-    const dto = payload as Record<string, unknown>;
-    return (
-      typeof dto.email === "string" &&
-      dto.email.length > 0 &&
-      typeof dto.password === "string" &&
-      dto.password.length > 0
-    );
-  }
-  return false;
+  return validateSafe(RegisterRequestSchema, payload).success;
 }
 
 /**
- * Safely validate RequestOtpDTO
+ * Safely validate RequestOtpDTO using Zod schema as single source of truth
  */
 export function isValidRequestOtp(
   payload: unknown
 ): payload is { email: string } {
-  if (typeof payload === "object" && payload !== null) {
-    const dto = payload as Record<string, unknown>;
-    return typeof dto.email === "string" && dto.email.length > 0;
-  }
-  return false;
+  return validateSafe(RequestOtpSchema, payload).success;
 }
 
 /**
- * Safely validate VerifyOtpDTO
+ * Safely validate VerifyOtpDTO using Zod schema as single source of truth
  */
 export function isValidVerifyOtp(
   payload: unknown
 ): payload is { email: string; otp: string } {
-  if (typeof payload === "object" && payload !== null) {
-    const dto = payload as Record<string, unknown>;
-    return (
-      typeof dto.email === "string" &&
-      dto.email.length > 0 &&
-      typeof dto.otp === "string" &&
-      dto.otp.length > 0
-    );
-  }
-  return false;
+  return validateSafe(VerifyOtpSchema, payload).success;
 }
 
 /**
@@ -270,38 +258,26 @@ export function safeExtractSessionOutput(
 }
 
 /**
- * Safely validate LoginRequestDTO
+ * Safely validate LoginRequestDTO using Zod schema as single source of truth
  */
 export function isValidLoginRequest(
   payload: unknown
 ): payload is LoginRequestDTO {
-  if (typeof payload === "object" && payload !== null) {
-    const dto = payload as LoginRequestDTO;
-    return typeof dto.email === "string" && typeof dto.password === "string";
-  }
-  return false;
+  return validateSafe(LoginRequestSchema, payload).success;
 }
 
 /**
- * Safely validate AuthSession
+ * Safely validate AuthSession using Zod schema as single source of truth
  */
 export function isAuthSession(obj: unknown): obj is AuthSession {
-  if (typeof obj !== "object" || obj === null) return false;
-
-  const session = obj as AuthSession;
-  return (
-    typeof session.accessToken === "string" && session.accessToken.length > 0
-  );
+  return validateSafe(AuthSessionSchema, obj).success;
 }
 
 /**
- * Safely validate UserProfile
+ * Safely validate UserProfile using Zod schema as single source of truth
  */
 export function isUserProfile(obj: unknown): obj is UserProfile {
-  if (typeof obj !== "object" || obj === null) return false;
-
-  const profile = obj as UserProfile;
-  return typeof profile.id === "string" && typeof profile.email === "string";
+  return validateSafe(UserProfileSchema, obj).success;
 }
 /**
  * Safely extract action token from context with validation

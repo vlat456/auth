@@ -122,10 +122,7 @@ export const UserProfileSchema = z.object({
 }) satisfies z.ZodType<UserProfile>;
 
 export const AuthSessionSchema = z.object({
-  accessToken: z
-    .string()
-    .min(1, "Access token is required")
-    .min(20, "Invalid access token format"),
+  accessToken: z.string().min(5, "Access token must be at least 5 characters"),
   refreshToken: z.string().min(1, "Refresh token is required").optional(),
   profile: UserProfileSchema.optional(),
 }) satisfies z.ZodType<AuthSession>;

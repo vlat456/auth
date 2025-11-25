@@ -173,7 +173,7 @@ describe("Zod Helpers", () => {
 
     it("should fail with short access token", () => {
       const result = validateAuthSession({
-        accessToken: "short",
+        accessToken: "sho", // 3 characters - less than required 5
       });
       expect(result.success).toBe(false);
     });

@@ -69,7 +69,7 @@ describe("Auth Machine", () => {
     });
 
     it("should move to authorized if session exists", async () => {
-      const mockSession = { accessToken: "123" };
+      const mockSession = { accessToken: "validaccesstoken" };
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(mockSession);
       const actor = createTestActor();
       await waitForState(actor, (s) => s.matches("authorized"));
@@ -83,14 +83,14 @@ describe("Auth Machine", () => {
     });
 
     it("should handle success", async () => {
-      const mockSession = { accessToken: "123", refreshToken: "456" };
+      const mockSession = { accessToken: "validaccesstoken", refreshToken: "validrefreshtoken" };
       (mockRepo.login as jest.Mock).mockResolvedValue(mockSession);
 
       const actor = createTestActor();
       await waitForState(actor, (s) => s.matches("unauthorized"));
 
       const p1 = waitForState(actor, (s) => s.matches("authorized"));
-      actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
+      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
       await p1;
 
       expect(mockRepo.login).toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("Auth Machine", () => {
           s.matches({ unauthorized: { login: "idle" } }) &&
           s.context.error !== null
       );
-      actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
+      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
       await p1;
 
       const snapshot = actor.getSnapshot();
@@ -128,7 +128,7 @@ describe("Auth Machine", () => {
           s.matches({ unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
-      actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
+      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
       await p1;
     });
   });
@@ -139,7 +139,7 @@ describe("Auth Machine", () => {
     });
 
     it("should handle full OTP-based registration flow", async () => {
-      const mockSession = { accessToken: "xyz" };
+      const mockSession = { accessToken: "validaccesstoken" };
       (mockRepo.register as jest.Mock).mockResolvedValue(undefined);
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("registration-token");
       (mockRepo.completeRegistration as jest.Mock).mockResolvedValue(undefined);
@@ -159,7 +159,7 @@ describe("Auth Machine", () => {
       );
       actor.send({
         type: "REGISTER",
-        payload: { email: "a", password: "b" },
+        payload: { email: "test@example.com", password: "validpass" },
       });
       await toVerifyOtp;
 
@@ -168,20 +168,20 @@ describe("Auth Machine", () => {
       await toAuthorized;
 
       expect(mockRepo.register).toHaveBeenCalledWith({
-        email: "a",
-        password: "b",
+        email: "test@example.com",
+        password: "validpass",
       });
       expect(mockRepo.verifyOtp).toHaveBeenCalledWith({
-        email: "a",
+        email: "test@example.com",
         otp: "654321",
       });
       expect(mockRepo.completeRegistration).toHaveBeenCalledWith({
         actionToken: "registration-token",
-        newPassword: "b",
+        newPassword: "validpass",
       });
       expect(mockRepo.login).toHaveBeenCalledWith({
-        email: "a",
-        password: "b",
+        email: "test@example.com",
+        password: "validpass",
       });
       expect(actor.getSnapshot().context.session).toEqual(mockSession);
     });
@@ -449,7 +449,7 @@ describe("Auth Machine", () => {
     });
 
     it("should handle the full forgot password flow", async () => {
-      const mockSession = { accessToken: "1" };
+      const mockSession = { accessToken: "validaccesstoken" };
       (mockRepo.requestPasswordReset as jest.Mock).mockResolvedValue(undefined);
       (mockRepo.verifyOtp as jest.Mock).mockResolvedValue("action-token");
       (mockRepo.completePasswordReset as jest.Mock).mockResolvedValue(
@@ -649,7 +649,7 @@ describe("Auth Machine", () => {
           s.matches({ unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
-      actor.send({ type: "LOGIN", payload: { email: "a", password: "b" } });
+      actor.send({ type: "LOGIN", payload: { email: "test@example.com", password: "validpass" } });
       await p1;
 
       expect(actor.getSnapshot().context.error?.message).toBe(

@@ -158,11 +158,12 @@ export function getFirstValidationError(
     return undefined;
   }
 
-  const firstKey = Object.keys(result.errors)[0];
-  if (!firstKey) {
+  const errorKeys = Object.keys(result.errors);
+  if (errorKeys.length === 0) {
     return undefined;
   }
 
+  const firstKey = errorKeys[0];
   return result.errors[firstKey][0];
 }
 

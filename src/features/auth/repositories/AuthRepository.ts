@@ -30,8 +30,12 @@ import {
   isUserProfile,
   safeGetNestedValue,
 } from "../utils/safetyUtils";
+import { createLockedFunction } from "../utils/lockUtils";
 
 const STORAGE_KEY = "user_session_token";
+
+// Mutex to prevent concurrent token refresh operations
+const refreshMutex = createLockedFunction;
 
 interface RetryConfig extends InternalAxiosRequestConfig {
   _retryCount?: number;
@@ -252,8 +256,8 @@ export class AuthRepository implements IAuthRepository {
    *
    * Returns: AuthSession with new accessToken and fresh profile data
    */
-  refresh = withErrorHandling(
-    async (refreshToken: string): Promise<AuthSession> => {
+  refresh = createLockedFunction(
+    withErrorHandling(async (refreshToken: string): Promise<AuthSession> => {
       const response = await this.apiClient.post<
         ApiSuccessResponse<RefreshResponseData>
       >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
@@ -327,7 +331,7 @@ export class AuthRepository implements IAuthRepository {
 
       await this.saveSession(refreshedSession);
       return refreshedSession;
-    },
+    })
   );
 
   async logout(): Promise<void> {
