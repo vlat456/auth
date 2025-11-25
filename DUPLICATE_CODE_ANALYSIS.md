@@ -182,39 +182,82 @@ requestPasswordReset = withErrorHandling(
 - Easier to add rate limiting to new methods
 - Cleaner method implementations with less boilerplate
 
-### 4. Session Handling Logic
+### 4. Session Handling Logic - COMPLETED
+
+**Status**: FIXED - Refactoring completed successfully
 
 **Location**: `/src/features/auth/repositories/AuthRepository.ts`
 
 **Issue**: Similar session handling patterns across multiple methods (checking, reading, saving, validating).
 
-**Current Implementation**:
+**Previous Implementation**:
 ```typescript
-// In multiple methods
-const session = await this.readSession();
-if (!session) return null;
+// In checkSession method
+async checkSession(): Promise<AuthSession | null> {
+  // Step 1: Get the current session
+  const session = await this.readSession();
+  if (!session) return null;
 
-if (this.isTokenExpired(session.accessToken)) {
-  return await this.handleExpiredSession(session);
-}
-
-return await this.validateSessionWithServer(session);
-```
-
-**Recommendation**: Create a unified session management service:
-```typescript
-class SessionManager {
-  constructor(private storage: IStorage) {}
-
-  async validateSession(): Promise<AuthSession | null> {
-    // Common validation logic
+  // Step 2: Handle expired access token with refresh
+  if (this.isTokenExpired(session.accessToken)) {
+    return await this.handleExpiredSession(session);
   }
 
-  async refreshSessionIfExpired(session: AuthSession): Promise<AuthSession | null> {
-    // Common refresh logic
-  }
+  // Step 3: Validate session with server
+  return await this.validateSessionWithServer(session);
+}
+
+// In refreshProfile method
+async refreshProfile(): Promise<AuthSession | null> {
+  const session = await this.readSession();
+  if (!session) return null;
+
+  // Profile refresh logic
 }
 ```
+
+**Solution Implemented**: Created a unified method that consolidates the common session validation and refresh logic:
+
+```typescript
+/**
+ * Unified method to validate session and refresh if needed
+ */
+private async validateAndRefreshSessionIfNeeded(session?: AuthSession): Promise<AuthSession | null> {
+  // If session not provided, read from storage
+  const currentSession = session || await this.readSession();
+  if (!currentSession) return null;
+
+  // Check if access token is expired
+  if (this.isTokenExpired(currentSession.accessToken)) {
+    return await this.handleExpiredSession(currentSession);
+  }
+
+  // Validate session with server
+  return await this.validateSessionWithServer(currentSession);
+}
+
+// Updated checkSession to use the unified method
+async checkSession(): Promise<AuthSession | null> {
+  return await this.validateAndRefreshSessionIfNeeded();
+}
+
+// Updated refreshProfile to use the unified method for initial validation
+async refreshProfile(): Promise<AuthSession | null> {
+  // First validate and refresh the session if needed to ensure we have a valid token
+  const session = await this.validateAndRefreshSessionIfNeeded();
+  if (!session) return null;
+
+  // Profile refresh logic
+}
+```
+
+**Benefits Achieved**:
+- Eliminated code duplication for session validation and refresh logic
+- Improved maintainability by having single source of session validation implementation
+- Consistent session handling behavior across methods
+- All existing tests continue to pass
+- Easier to update session validation logic in one place
+- More robust session handling by ensuring validity before operations
 
 ### 5. Validation with Schema Functions - COMPLETED
 
@@ -298,8 +341,8 @@ export const safeExtractVerifyOtpPayload = createSafeExtractFunction(VerifyOtpSc
 1. **Completed**: Refactored safe extraction functions to use generic pattern
 2. **Completed**: Created generic factory for validation functions
 3. **Completed**: Removed duplicate sanitization logic by eliminating deprecated sanitizationUtils.ts
-4. **Completed**: Extracted rate limiting pattern into reusable higher-order functions
-5. **Medium Priority**: Consolidate session handling logic
+4. **Completed**: Extracted rate limiting pattern into reusable helper functions
+5. **Completed**: Consolidated session handling logic into unified methods
 
 ## Benefits of Refactoring
 

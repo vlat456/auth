@@ -156,18 +156,28 @@ export class AuthRepository implements IAuthRepository {
     },
   );
 
+  /**
+   * Validates and returns the current session with the server, handling expiration as needed
+   */
   async checkSession(): Promise<AuthSession | null> {
-    // Step 1: Get the current session
-    const session = await this.readSession();
-    if (!session) return null;
+    return await this.validateAndRefreshSessionIfNeeded();
+  }
 
-    // Step 2: Handle expired access token with refresh
-    if (this.isTokenExpired(session.accessToken)) {
-      return await this.handleExpiredSession(session);
+  /**
+   * Unified method to validate session and refresh if needed
+   */
+  private async validateAndRefreshSessionIfNeeded(session?: AuthSession): Promise<AuthSession | null> {
+    // If session not provided, read from storage
+    const currentSession = session || await this.readSession();
+    if (!currentSession) return null;
+
+    // Check if access token is expired
+    if (this.isTokenExpired(currentSession.accessToken)) {
+      return await this.handleExpiredSession(currentSession);
     }
 
-    // Step 3: Validate session with server
-    return await this.validateSessionWithServer(session);
+    // Validate session with server
+    return await this.validateSessionWithServer(currentSession);
   }
 
   private async handleExpiredSession(
@@ -331,7 +341,8 @@ export class AuthRepository implements IAuthRepository {
    * Returns the updated session or null if profile fetch fails or no valid session exists.
    */
   async refreshProfile(): Promise<AuthSession | null> {
-    const session = await this.readSession();
+    // First validate and refresh the session if needed to ensure we have a valid token
+    const session = await this.validateAndRefreshSessionIfNeeded();
     if (!session) return null;
 
     try {
