@@ -3,7 +3,6 @@
  * Provides a simple interface to access auth functions from React Native
  */
 
-import { AuthRepository } from "./features/auth/repositories/AuthRepository";
 import { ReactNativeStorage } from "./features/auth/adapters/ReactNativeStorage";
 import {
   LoginRequestDTO,
@@ -13,45 +12,110 @@ import {
   CompleteRegistrationDTO,
   CompletePasswordResetDTO,
   AuthSession,
-  IAuthRepository,
   ChangePasswordRequestDTO,
   DeleteAccountRequestDTO,
 } from "./features/auth/types";
+import { AuthService } from "./features/auth/service/authService";
+import { SimplifiedAuthRepository } from "./features/auth/repositories/SimplifiedAuthRepository";
 
 export class ReactNativeAuthInterface {
-  private authRepository: IAuthRepository;
+  private authService: AuthService;
 
   constructor(apiBaseURL?: string) {
-    // Initialize the AuthRepository with React Native storage
-    this.authRepository = new AuthRepository(ReactNativeStorage, apiBaseURL);
+    // Initialize the SimplifiedAuthRepository with React Native storage
+    const authRepository = new SimplifiedAuthRepository(ReactNativeStorage, apiBaseURL);
+
+    // Initialize auth service with the repository
+    this.authService = new AuthService(authRepository);
   }
 
   /**
    * Login with email and password
    */
   async login(payload: LoginRequestDTO): Promise<AuthSession> {
-    return await this.authRepository.login(payload);
+    // We'll need to wait for the login result using a promise
+    return new Promise((resolve, reject) => {
+      // Subscribe to state changes to detect when login is complete
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('authorized')) {
+          const session = state.context.session;
+          if (session) {
+            resolve(session);
+            subscription.unsubscribe(); // Unsubscribe after successful login
+          }
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe(); // Unsubscribe after error
+        }
+      });
+
+      // Send the login event
+      this.authService.send({ type: 'LOGIN', payload });
+    });
   }
 
   /**
    * Register a new user
    */
   async register(payload: RegisterRequestDTO): Promise<void> {
-    return await this.authRepository.register(payload);
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('authorized')) {
+          resolve();
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      // Start registration process
+      this.authService.send({ type: 'REGISTER', payload });
+    });
   }
 
   /**
    * Request password reset (sends OTP)
    */
   async requestPasswordReset(payload: RequestOtpDTO): Promise<void> {
-    return await this.authRepository.requestPasswordReset(payload);
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches({ unauthorized: { forgotPassword: 'verifyOtp' } })) {
+          resolve();
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      this.authService.send({ type: 'FORGOT_PASSWORD', payload });
+    });
   }
 
   /**
    * Verify OTP code
    */
   async verifyOtp(payload: VerifyOtpDTO): Promise<string> {
-    return await this.authRepository.verifyOtp(payload);
+    // For OTP verification we'll return a promise that resolves with the action token
+    return new Promise((resolve, reject) => {
+      // Note: We'll need to track the action token in the context or return it somehow
+      // This requires updating the authMachine to store action tokens in context
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.context.registrationActionToken || state.context.resetActionToken) {
+          const token = state.context.registrationActionToken || state.context.resetActionToken;
+          if (token) {
+            resolve(token);
+            subscription.unsubscribe();
+          }
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      this.authService.send({ type: 'VERIFY_OTP', payload });
+    });
   }
 
   /**
@@ -60,35 +124,99 @@ export class ReactNativeAuthInterface {
   async completePasswordReset(
     payload: CompletePasswordResetDTO,
   ): Promise<void> {
-    return await this.authRepository.completePasswordReset(payload);
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('authorized')) {
+          resolve();
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      this.authService.send({ type: 'RESET_PASSWORD', payload });
+    });
   }
 
   /**
    * Complete registration with action token and new password
    */
   async completeRegistration(payload: CompleteRegistrationDTO): Promise<void> {
-    return await this.authRepository.completeRegistration(payload);
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('authorized')) {
+          resolve();
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      // Complete registration happens automatically after OTP verification in the registration flow
+      // We'll send a custom event to handle this specific use case directly
+      this.authService.send({ type: 'COMPLETE_REGISTRATION', payload });
+    });
   }
 
   /**
    * Check current session (validates and refreshes if needed)
    */
   async checkSession(): Promise<AuthSession | null> {
-    return await this.authRepository.checkSession();
+    // Wait for the checkingSession state to resolve
+    return new Promise((resolve) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('checkingSession') && !state.hasTag('loading')) {
+          // When checking session is done, return the current session
+          resolve(state.context.session);
+          subscription.unsubscribe();
+        } else if (state.matches('authorized') || state.matches('unauthorized')) {
+          // If we reach a final auth state, return the session
+          resolve(state.context.session);
+          subscription.unsubscribe();
+        }
+      });
+    });
   }
 
   /**
    * Logout the current user
    */
   async logout(): Promise<void> {
-    return await this.authRepository.logout();
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('unauthorized')) {
+          resolve();
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      this.authService.send({ type: 'LOGOUT' });
+    });
   }
 
   /**
    * Refresh session using refresh token
    */
-  async refresh(refreshToken: string): Promise<AuthSession> {
-    return await this.authRepository.refresh(refreshToken);
+  async refresh(): Promise<AuthSession | null> {
+    return new Promise((resolve, reject) => {
+      const subscription = this.authService.subscribe((state: any) => {
+        if (state.matches('authorized')) {
+          const session = state.context.session;
+          resolve(session);
+          subscription.unsubscribe();
+        } else if (state.context.error) {
+          reject(new Error(state.context.error.message));
+          subscription.unsubscribe();
+        }
+      });
+
+      this.authService.send({ type: 'REFRESH' });
+    });
   }
 
   /**
@@ -114,9 +242,15 @@ export class ReactNativeAuthInterface {
   /**
    * Get the current session without validation
    */
-  async getCurrentSession(): Promise<AuthSession | null> {
-    // This would require direct access to storage, which isn't exposed
-    // So we'll use the checkSession method which will return current if valid
-    return await this.checkSession();
+  getCurrentSession(): AuthSession | null {
+    // Read the session directly from the auth service context
+    return this.authService.getSession();
+  }
+
+  /**
+   * Get the current auth state
+   */
+  getAuthState(): string | object {
+    return this.authService.getAuthState();
   }
 }
