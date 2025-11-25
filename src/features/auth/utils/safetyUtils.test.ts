@@ -826,3 +826,71 @@ describe("Safety Utilities", () => {
     });
   });
 });
+
+describe("resolveRegistrationPassword", () => {
+  const { resolveRegistrationPassword } = require("./safetyUtils");
+
+  it("returns provided password when non-empty string", () => {
+    expect(
+      resolveRegistrationPassword({ email: "a", password: "Secret123" })
+    ).toBe("Secret123");
+  });
+
+  it("returns empty string when password is missing or blank", () => {
+    expect(resolveRegistrationPassword({ email: "a", password: "" })).toBe("");
+    expect(resolveRegistrationPassword({ email: "a" } as any)).toBe("");
+    expect(resolveRegistrationPassword(undefined)).toBe("");
+  });
+});
+
+describe("hasValidCredentials", () => {
+  const { hasValidCredentials } = require("./safetyUtils");
+
+  it("returns true when both email and password are non-empty strings", () => {
+    expect(
+      hasValidCredentials({ email: "test@test.com", password: "password123" })
+    ).toBe(true);
+  });
+
+  it("returns false when credentials are undefined", () => {
+    expect(hasValidCredentials(undefined)).toBe(false);
+  });
+
+  it("returns false when email is missing", () => {
+    expect(hasValidCredentials({ password: "password123" } as any)).toBe(false);
+  });
+
+  it("returns false when email is empty string", () => {
+    expect(hasValidCredentials({ email: "", password: "password123" })).toBe(
+      false
+    );
+  });
+
+  it("returns false when password is missing", () => {
+    expect(hasValidCredentials({ email: "test@test.com" } as any)).toBe(false);
+  });
+
+  it("returns false when password is empty string", () => {
+    expect(hasValidCredentials({ email: "test@test.com", password: "" })).toBe(
+      false
+    );
+  });
+
+  it("returns false when email is not a string", () => {
+    expect(
+      hasValidCredentials({
+        email: 123,
+        password: "password123",
+      } as any)
+    ).toBe(false);
+  });
+
+  it("returns false when password is not a string", () => {
+    expect(
+      hasValidCredentials({
+        email: "test@test.com",
+        password: 123,
+      } as any)
+    ).toBe(false);
+  });
+});

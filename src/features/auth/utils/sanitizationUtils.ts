@@ -1,5 +1,11 @@
 /**
- * Input sanitization utilities to prevent injection attacks
+ * DEPRECATED: Input sanitization utilities
+ *
+ * This file is deprecated as of refactoring.
+ * All sanitization logic has been moved to validationSchemas.ts using Zod's transform methods.
+ * Please use the Zod schemas instead for both validation and sanitization.
+ *
+ * @deprecated Use validationSchemas.ts with Zod transform methods instead
  */
 
 import * as validator from 'validator';

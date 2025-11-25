@@ -8,6 +8,7 @@
  * - Detailed error messages
  * - Composable schemas
  * - Runtime validation without duplicating type definitions
+ * - Input sanitization using transform methods
  */
 
 import { z } from "zod";
@@ -30,31 +31,97 @@ import type {
 } from "../types";
 
 // ============================================================================
-// Primitive Schemas
+// Sanitization helpers
 // ============================================================================
 
-export const EmailSchema = z
-  .string()
-  .email("Invalid email format")
-  .min(1, "Email is required")
-  .max(254, "Email is too long"); // Standard email max length
+const sanitizeInput = (input: string): string => {
+  if (typeof input !== 'string') {
+    return '';
+  }
 
-export const PasswordSchema = z
+  // Remove or escape potentially dangerous characters
+  return input
+    .replace(/</g, '&lt;')   // Prevent HTML injection
+    .replace(/>/g, '&gt;')   // Prevent HTML injection
+    .replace(/"/g, '&quot;') // Prevent attribute escaping
+    .replace(/'/g, '&#x27;') // Prevent attribute escaping
+    .replace(/\//g, '&#x2F;') // Prevent closing tags
+    .trim(); // Remove leading/trailing whitespace
+};
+
+const sanitizeEmail = (email: string): string => {
+  if (typeof email !== 'string') {
+    return '';
+  }
+
+  // Use validator to normalize and validate email (if available, otherwise basic normalization)
+  // For now, we implement basic normalization
+  return email.toLowerCase().trim().substring(0, 254);
+};
+
+const sanitizePassword = (password: string): string => {
+  if (typeof password !== 'string') {
+    return '';
+  }
+
+  // Don't overly restrict password chars as this might reduce entropy
+  // Just remove potentially dangerous characters
+  return password.replace(/['"]/g, '');
+};
+
+const sanitizeOtp = (otp: string): string => {
+  if (typeof otp !== 'string') {
+    return '';
+  }
+
+  // Only allow digits and ensure it's not too long
+  const digitsOnly = otp.replace(/\D/g, '').substring(0, 10);
+  return digitsOnly;
+};
+
+const sanitizeActionToken = (token: string): string => {
+  if (typeof token !== 'string') {
+    return '';
+  }
+
+  // Remove potential dangerous characters but keep token format
+  return token.replace(/['"<>]/g, '').trim();
+};
+
+// ============================================================================
+// Primitive Schemas with sanitization
+// ============================================================================
+
+const UnsanitizedEmailSchema = z
+  .string()
+  .min(1, "Email is required")
+  .max(254, "Email is too long") // Standard email max length
+  .email("Invalid email format");
+
+export const EmailSchema = UnsanitizedEmailSchema.transform(sanitizeEmail);
+
+const UnsanitizedPasswordSchema = z
   .string()
   .min(1, "Password is required")
   .min(8, "Password must be at least 8 characters")
   .max(128, "Password is too long"); // Reasonable max length
 
-export const OtpSchema = z
-  .string()
-  .regex(/^\d{4,6}$/, "OTP must be a 4-6 digit code")
-  .max(10, "OTP is too long"); // Additional safety limit
+export const PasswordSchema = UnsanitizedPasswordSchema.transform(sanitizePassword);
 
-export const ActionTokenSchema = z
+const UnsanitizedOtpSchema = z
+  .string()
+  .max(10, "OTP is too long") // Additional safety limit
+  .regex(/^\d{4,6}$/, "OTP must be a 4-6 digit code");
+
+export const OtpSchema = UnsanitizedOtpSchema.transform(sanitizeOtp);
+
+const UnsanitizedActionTokenSchema = z
   .string()
   .min(1, "Action token is required")
   .min(20, "Invalid action token format")
   .max(512, "Action token is too long"); // Reasonable max length for tokens
+
+export const ActionTokenSchema = UnsanitizedActionTokenSchema.transform(sanitizeActionToken);
 
 // ============================================================================
 // DTO Schemas
@@ -98,9 +165,13 @@ export const DeleteAccountRequestSchema = z.object({
   email: EmailSchema,
 }) satisfies z.ZodType<DeleteAccountRequestDTO>;
 
-export const RefreshRequestSchema = z.object({
+const UnsanitizedRefreshRequestSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 }) satisfies z.ZodType<RefreshRequestDTO>;
+
+export const RefreshRequestSchema = UnsanitizedRefreshRequestSchema.transform((val) => ({
+  refreshToken: val.refreshToken.trim(),
+}));
 
 // ============================================================================
 // Response Schemas

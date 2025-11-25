@@ -45,8 +45,9 @@ import {
   AuthSessionSchema,
   UserProfileSchema,
   validateSafe,
-  validateStrict
+  validateStrict,
 } from "../schemas/validationSchemas";
+import type { ZodSchema } from "zod";
 
 /**
  * Safely extract an error message from an XState error event.
@@ -96,16 +97,32 @@ export function safeExtractPayload<T = Record<string, unknown>>(
 }
 
 /**
+ * Generic function to safely extract and validate payload using a provided schema
+ */
+export function safeExtractAndValidatePayload<T>(
+  event: AuthEvent,
+  schema: ZodSchema<T>
+): T | undefined {
+  const rawPayload = safeExtractPayload(event);
+  if (rawPayload === undefined) {
+    return undefined;
+  }
+
+  const result = validateSafe(schema, rawPayload);
+  if (result.success) {
+    return result.data as T;
+  }
+
+  return undefined;
+}
+
+/**
  * Safely extract and validate login payload from event
  */
 export function safeExtractLoginPayload(
   event: AuthEvent
 ): LoginRequestDTO | undefined {
-  const payload = safeExtractPayload(event);
-  if (isValidLoginRequest(payload)) {
-    return payload;
-  }
-  return undefined;
+  return safeExtractAndValidatePayload(event, LoginRequestSchema);
 }
 
 /**
@@ -198,11 +215,7 @@ export function isValidVerifyOtp(
 export function safeExtractRegisterPayload(
   event: AuthEvent
 ): { email: string; password: string } | undefined {
-  const payload = safeExtractPayload(event);
-  if (isValidRegisterRequest(payload)) {
-    return payload;
-  }
-  return undefined;
+  return safeExtractAndValidatePayload(event, RegisterRequestSchema);
 }
 
 /**
@@ -211,11 +224,7 @@ export function safeExtractRegisterPayload(
 export function safeExtractOtpRequestPayload(
   event: AuthEvent
 ): { email: string } | undefined {
-  const payload = safeExtractPayload(event);
-  if (isValidRequestOtp(payload)) {
-    return payload;
-  }
-  return undefined;
+  return safeExtractAndValidatePayload(event, RequestOtpSchema);
 }
 
 /**
@@ -224,11 +233,7 @@ export function safeExtractOtpRequestPayload(
 export function safeExtractVerifyOtpPayload(
   event: AuthEvent
 ): { email: string; otp: string } | undefined {
-  const payload = safeExtractPayload(event);
-  if (isValidVerifyOtp(payload)) {
-    return payload;
-  }
-  return undefined;
+  return safeExtractAndValidatePayload(event, VerifyOtpSchema);
 }
 
 /**
@@ -334,3 +339,37 @@ export function safeArrayAccess<T>(
   }
   return arr[index];
 }
+
+/**
+ * Safely extracts password from pending credentials.
+ * Returns non-empty password if available, otherwise empty string.
+ */
+export const resolveRegistrationPassword = (
+  pending?: LoginRequestDTO,
+): string => {
+  if (
+    pending &&
+    typeof pending.password === "string" &&
+    pending.password.length > 0
+  ) {
+    return pending.password;
+  }
+  return "";
+};
+
+/**
+ * Validates that credentials are available for login.
+ * Returns true only if both email and password are non-empty strings.
+ * This prevents silent failures when credentials are lost during flow.
+ */
+export const hasValidCredentials = (
+  credentials?: LoginRequestDTO,
+): credentials is LoginRequestDTO => {
+  return (
+    credentials !== undefined &&
+    typeof credentials.email === "string" &&
+    credentials.email.length > 0 &&
+    typeof credentials.password === "string" &&
+    credentials.password.length > 0
+  );
+};

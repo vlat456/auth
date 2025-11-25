@@ -1,95 +1,46 @@
-# Gemini Project Context: @your-app/auth-logic
+# Gemini Project Context
 
 This file provides context for the Gemini AI assistant to understand and effectively assist with this project.
 
 ## Project Overview
 
-This project is a decoupled authentication logic library for a TypeScript application. It uses **XState** to manage complex authentication flows as a state machine and follows the **Repository Pattern** to separate business logic from data access.
+This project is a decoupled authentication logic library for TypeScript applications, with a strong focus on React Native. It uses **XState** to manage complex authentication flows as a state machine and follows the **Repository Pattern** and **Dependency Injection** to separate business logic from data access, making it highly modular and testable.
 
-The core of the project is the `authMachine`, which handles:
-- User login and registration with OTP verification
-- Session checking with JWT handling and refresh token support
-- A full "forgot password" flow, including OTP verification and password reset
-- Complete registration flow after OTP verification
-- User logout
+The core of the project is the `authMachine`, which provides a complete and secure solution for managing user authentication, including:
+- User login, registration, and session management.
+- Robust handling of JWTs with automated token refresh.
+- Advanced security features like request retries, rate limiting, and race condition protection for token refreshes.
 
-The `AuthRepository` class implements the data access layer and communicates with a backend API via `axios`. It is designed to be platform-agnostic, using a generic `IStorage` interface for session token persistence, which can be implemented with `async-storage` on React Native or `localStorage` on the web.
-
-The project also includes utility functions for error handling and safe data access, with comprehensive type safety throughout.
+The `AuthRepository` class implements the data access layer, communicating with a backend API via `axios`. It is designed to be platform-agnostic by using a generic `IStorage` interface for session token persistence, which can be implemented with `async-storage` on React Native or `localStorage` on the web.
 
 ## Key Technologies
 
-- **TypeScript** for type safety
-- **XState** for state management
-- **Jest** for testing
-- **Axios** for HTTP requests
-- **Repository Pattern** for data access abstraction
-- **Dependency Injection** for testability and flexibility
+- **TypeScript** for strict type-safety.
+- **XState** for state management and modeling complex authentication flows.
+- **Axios** for making HTTP requests to the backend API.
+- **Zod** and **validator** for data validation and sanitization.
+- **Jest** for unit and integration testing.
 
-## Building and Running
+## Architecture
 
-### Prerequisites
+The project follows a clean, modular architecture that promotes separation of concerns and reusability:
 
-- Node.js
-- npm or yarn
-
-### Scripts
-
-The following scripts are available in `package.json`:
-
-- **`npm test`**: Runs the test suite using Jest.
-- **`npm run test:watch`**: Runs the tests in watch mode.
-- **`npm run test:coverage`**: Generates a test coverage report.
-- **`npm run build`**: Compiles the TypeScript code into JavaScript.
+- **Dependency Injection (DI)**: The core logic (`authMachine`) depends on interfaces (`IAuthRepository`, `IStorage`) rather than concrete implementations. This allows consumers of the library to provide their own repository or storage mechanisms, making the library highly flexible and easy to test.
+- **Repository Pattern**: The `AuthRepository` encapsulates all data access and API communication, separating the business logic in the state machine from the implementation details of the backend.
+- **Adapter Pattern**: `ReactNativeStorage` is an adapter that makes an external library (like `@react-native-async-storage/async-storage`) conform to the `IStorage` interface defined by the project.
+- **Feature-Based Structure**: All authentication-related logic is organized under `src/features/auth`, with clear subdirectories for the state `machine`, `repositories`, `adapters`, `schemas`, and `utils`.
 
 ## Development Conventions
 
-### Architecture
-
-- **Feature-Based Structure**: The code is organized by features (e.g., `auth`).
-- **State Machine**: The core logic is encapsulated in an XState machine (`authMachine.ts`), making the flow of control explicit and easy to visualize.
-- **Repository Pattern**: Data access and API communication are handled by the `AuthRepository`, which is injected into the state machine. This decouples the state logic from the implementation details of the backend.
-- **Dependency Injection**: The `AuthRepository` and a storage adapter (`IStorage`) are injected, allowing for easy mocking in tests and platform-specific implementations.
-- **Utility Functions**: Safe data access and error handling utilities are provided in the `utils` directory.
-
-### Testing
-
-- **Unit Tests**: Tests are written with Jest and are co-located with the source files (e.g., `authMachine.test.ts`).
-- **Mocking**: Dependencies like the `AuthRepository` are mocked in tests to isolate the logic being tested.
-- **Comprehensive Coverage**: Includes tests for all authentication flows, error handling, JWT validation, and token refresh scenarios.
-- **Test Suites**: Organized into three main test suites: Auth Machine, Auth Repository, and Error Handler utilities.
-
-### Coding Style
-
-- **TypeScript**: The project uses TypeScript for all its code, enforcing type safety.
-- **Interfaces**: Interfaces are used to define contracts for data structures (`User`, `LoginPayload`) and services (`IAuthRepository`, `IStorage`).
-- **Functional Utilities**: Utility functions for safe data access and error handling are provided to prevent runtime errors.
-- **Async Operations**: All side effects are handled as async operations within the XState machine using `fromPromise`.
+- **High Type Safety**: Enforced by a strict `tsconfig.json` and the extensive use of utility types and safe data extraction functions.
+- **Robustness and Security**: The `AuthRepository` includes advanced features like request retries with exponential backoff, a mutex to prevent token refresh race conditions, client-side rate limiting, and secure JWT handling.
+- **Strict Linting**: A comprehensive ESLint setup enforces high code quality, consistency, and maintainability.
+- **API Contract**: The use of Data Transfer Objects (DTOs) in `types.ts` and the presence of an `openapi_schema.json` file suggest a contract-first approach to API integration.
 
 ## Key Features
 
-### Authentication Flows
-- Standard login flow with error handling
-- OTP-based registration flow with email verification
-- Complete registration with action tokens
-- Multi-step forgot password flow with OTP verification
-- Session management with JWT validation and refresh tokens
-- Secure logout mechanism
-
-### Security Considerations
-- JWT expiration checking with both local and server-side validation
-- Secure token storage with refresh token support
-- Safe data access utilities to prevent runtime errors
-- Proper error handling to avoid exposing sensitive information
-
-### Error Handling
-- Comprehensive error handling utilities for API responses
-- Graceful degradation for network and server errors
-- User-friendly error messages
-- Fallback strategies for various failure scenarios
-
-### Session Management
-- Automatic session checking and validation
-- Local JWT expiration checking before server requests
-- Automatic token refresh using refresh tokens
-- Proper cleanup on logout or invalid tokens
+- **Stateful Authentication Logic**: All authentication flows are managed in a predictable and robust XState state machine.
+- **Pluggable Storage**: The storage mechanism is abstracted behind an interface, with a default implementation provided for React Native's `AsyncStorage`.
+- **Advanced Session Management**: Includes secure JWT handling, automated token refreshing, and protection against common race conditions.
+- **Resilient API Communication**: The `AuthRepository` is built with resilience in mind, featuring automated request retries with exponential backoff.
+- **Modular and Testable**: The clear separation of concerns and use of dependency injection make the library easy to test and integrate into various application architectures.

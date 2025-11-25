@@ -25,41 +25,9 @@ import {
   safeExtractLoginPayload,
   safeExtractErrorMessage,
   safeExtractOutput,
+  resolveRegistrationPassword,
+  hasValidCredentials,
 } from "../utils/safetyUtils";
-
-/**
- * Safely extracts password from pending credentials.
- * Returns non-empty password if available, otherwise empty string.
- */
-export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO,
-): string => {
-  if (
-    pending &&
-    typeof pending.password === "string" &&
-    pending.password.length > 0
-  ) {
-    return pending.password;
-  }
-  return "";
-};
-
-/**
- * Validates that credentials are available for login.
- * Returns true only if both email and password are non-empty strings.
- * This prevents silent failures when credentials are lost during flow.
- */
-export const hasValidCredentials = (
-  credentials?: LoginRequestDTO,
-): credentials is LoginRequestDTO => {
-  return (
-    credentials !== undefined &&
-    typeof credentials.email === "string" &&
-    credentials.email.length > 0 &&
-    typeof credentials.password === "string" &&
-    credentials.password.length > 0
-  );
-};
 
 export type AuthContext = {
   session: AuthSession | null;

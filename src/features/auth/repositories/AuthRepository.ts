@@ -25,14 +25,6 @@ import {
   UserProfile,
   IStorage,
 } from "../types";
-import {
-  sanitizeLoginRequest,
-  sanitizeRegisterRequest,
-  sanitizeRequestOtp,
-  sanitizeVerifyOtp,
-  sanitizeCompleteRegistration,
-  sanitizeCompletePasswordReset,
-} from "../utils/sanitizationUtils";
 import { withErrorHandling } from "../utils/errorHandler";
 import {
   hasRequiredProperties,
@@ -94,11 +86,9 @@ export class AuthRepository implements IAuthRepository {
         throw new Error("Too many login attempts. Please try again later.");
       }
 
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeLoginRequest(payload);
       const response = await this.apiClient.post<
         ApiSuccessResponse<LoginResponseDTO>
-      >("/auth/login", sanitizedPayload);
+      >("/auth/login", payload);
 
       // Validate the response structure before accessing nested properties
       const responseData = response.data;
@@ -151,9 +141,7 @@ export class AuthRepository implements IAuthRepository {
         throw new Error("Too many registration attempts. Please try again later.");
       }
 
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeRegisterRequest(payload);
-      await this.apiClient.post("/auth/register", sanitizedPayload);
+      await this.apiClient.post("/auth/register", payload);
     },
   );
 
@@ -167,36 +155,28 @@ export class AuthRepository implements IAuthRepository {
         throw new Error("Too many OTP requests. Please try again later.");
       }
 
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeRequestOtp(payload);
-      await this.apiClient.post("/auth/otp/request", sanitizedPayload);
+      await this.apiClient.post("/auth/otp/request", payload);
     },
   );
 
   verifyOtp = withErrorHandling(
     async (payload: VerifyOtpDTO): Promise<string> => {
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeVerifyOtp(payload);
       const { data } = await this.apiClient.post<
         ApiSuccessResponse<{ actionToken: string }>
-      >("/auth/otp/verify", sanitizedPayload);
+      >("/auth/otp/verify", payload);
       return data.data.actionToken;
     },
   );
 
   completeRegistration = withErrorHandling(
     async (payload: CompleteRegistrationDTO): Promise<void> => {
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeCompleteRegistration(payload);
-      await this.apiClient.post("/auth/register/complete", sanitizedPayload);
+      await this.apiClient.post("/auth/register/complete", payload);
     },
   );
 
   completePasswordReset = withErrorHandling(
     async (payload: CompletePasswordResetDTO): Promise<void> => {
-      // Sanitize input before validation
-      const sanitizedPayload = sanitizeCompletePasswordReset(payload);
-      await this.apiClient.post("/auth/password/reset/complete", sanitizedPayload);
+      await this.apiClient.post("/auth/password/reset/complete", payload);
     },
   );
 
