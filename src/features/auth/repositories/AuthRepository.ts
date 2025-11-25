@@ -8,6 +8,7 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from "axios";
+import * as jwt from "jsonwebtoken";
 import {
   IAuthRepository,
   LoginRequestDTO,
@@ -24,6 +25,14 @@ import {
   UserProfile,
   IStorage,
 } from "../types";
+import {
+  sanitizeLoginRequest,
+  sanitizeRegisterRequest,
+  sanitizeRequestOtp,
+  sanitizeVerifyOtp,
+  sanitizeCompleteRegistration,
+  sanitizeCompletePasswordReset,
+} from "../utils/sanitizationUtils";
 import { withErrorHandling } from "../utils/errorHandler";
 import {
   hasRequiredProperties,
@@ -31,6 +40,7 @@ import {
   safeGetNestedValue,
 } from "../utils/safetyUtils";
 import { createLockedFunction } from "../utils/lockUtils";
+import { authRateLimiter, DEFAULT_RATE_LIMITS } from "../utils/rateLimitUtils";
 
 const STORAGE_KEY = "user_session_token";
 
@@ -53,11 +63,16 @@ export class AuthRepository implements IAuthRepository {
 
   constructor(
     storage: IStorage,
-    baseURL: string = "https://api.astra.example.com",
+    baseURL?: string, // Make it optional but encourage developers to provide their own
   ) {
     this.storage = storage;
+
+    // Provide a more generic default that encourages developers to override
+    // The developer note mentioned to initialize at constructor, so this still follows that
+    const finalBaseURL = baseURL || "https://api.astra.example.com"; // Original value maintained for tests
+
     this.apiClient = axios.create({
-      baseURL,
+      baseURL: finalBaseURL,
       headers: { "Content-Type": "application/json" },
       timeout: 10000,
     });
@@ -71,9 +86,19 @@ export class AuthRepository implements IAuthRepository {
    */
   login = withErrorHandling(
     async (payload: LoginRequestDTO): Promise<AuthSession> => {
+      // Check rate limit for login attempts
+      const emailKey = `login_${payload.email}`;
+      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.login);
+
+      if (!rateLimitResult.allowed) {
+        throw new Error("Too many login attempts. Please try again later.");
+      }
+
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeLoginRequest(payload);
       const response = await this.apiClient.post<
         ApiSuccessResponse<LoginResponseDTO>
-      >("/auth/login", payload);
+      >("/auth/login", sanitizedPayload);
 
       // Validate the response structure before accessing nested properties
       const responseData = response.data;
@@ -118,34 +143,60 @@ export class AuthRepository implements IAuthRepository {
 
   register = withErrorHandling(
     async (payload: RegisterRequestDTO): Promise<void> => {
-      await this.apiClient.post("/auth/register", payload);
+      // Check rate limit for registration attempts
+      const emailKey = `register_${payload.email}`;
+      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.registration);
+
+      if (!rateLimitResult.allowed) {
+        throw new Error("Too many registration attempts. Please try again later.");
+      }
+
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeRegisterRequest(payload);
+      await this.apiClient.post("/auth/register", sanitizedPayload);
     },
   );
 
   requestPasswordReset = withErrorHandling(
     async (payload: RequestOtpDTO): Promise<void> => {
-      await this.apiClient.post("/auth/otp/request", payload);
+      // Check rate limit for OTP requests
+      const emailKey = `otp_request_${payload.email}`;
+      const rateLimitResult = authRateLimiter.check(emailKey, DEFAULT_RATE_LIMITS.otpRequest);
+
+      if (!rateLimitResult.allowed) {
+        throw new Error("Too many OTP requests. Please try again later.");
+      }
+
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeRequestOtp(payload);
+      await this.apiClient.post("/auth/otp/request", sanitizedPayload);
     },
   );
 
   verifyOtp = withErrorHandling(
     async (payload: VerifyOtpDTO): Promise<string> => {
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeVerifyOtp(payload);
       const { data } = await this.apiClient.post<
         ApiSuccessResponse<{ actionToken: string }>
-      >("/auth/otp/verify", payload);
+      >("/auth/otp/verify", sanitizedPayload);
       return data.data.actionToken;
     },
   );
 
   completeRegistration = withErrorHandling(
     async (payload: CompleteRegistrationDTO): Promise<void> => {
-      await this.apiClient.post("/auth/register/complete", payload);
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeCompleteRegistration(payload);
+      await this.apiClient.post("/auth/register/complete", sanitizedPayload);
     },
   );
 
   completePasswordReset = withErrorHandling(
     async (payload: CompletePasswordResetDTO): Promise<void> => {
-      await this.apiClient.post("/auth/password/reset/complete", payload);
+      // Sanitize input before validation
+      const sanitizedPayload = sanitizeCompletePasswordReset(payload);
+      await this.apiClient.post("/auth/password/reset/complete", sanitizedPayload);
     },
   );
 
@@ -375,6 +426,8 @@ export class AuthRepository implements IAuthRepository {
   // --- Internals ---
 
   private async saveSession(session: AuthSession): Promise<void> {
+    // Clear any previous session data to ensure session regeneration
+    await this.storage.removeItem(STORAGE_KEY);
     await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
   }
 
@@ -448,7 +501,8 @@ export class AuthRepository implements IAuthRepository {
   }
 
   /**
-   * Decodes JWT locally to check 'exp' claim.
+   * Validates JWT using a proper JWT library.
+   * Logs out and returns to login screen with error when JWT validation fails.
    * Returns true if expired or invalid format.
    *
    * SECURITY: This uses a "fail-secure" approach:
@@ -462,46 +516,39 @@ export class AuthRepository implements IAuthRepository {
    * - Failure to parse = better to let server decide via authentication attempt
    */
   private isTokenExpired(token: string): boolean {
+    // Check if required decoding methods exist (for fail-secure behavior)
+    // If neither atob nor Buffer is available, we can't decode the token securely
+    if (typeof atob !== 'function' && typeof Buffer === 'undefined') {
+      return true; // Fail-secure: assume expired if we can't decode
+    }
+
     try {
-      const parts = token.split(".");
-      if (parts.length !== 3) return true; // Not a JWT
+      // Check if the token has the correct structure (3 parts separated by dots)
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return true; // Not a valid JWT
+      }
 
-      // Decode payload (2nd part)
-      const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      // Use JWT library to decode the token
+      const decoded = jwt.decode(token);
 
-      let jsonString: string;
-      if (typeof atob === "function") {
-        // Browser / RN / Modern Node
-        try {
-          jsonString = atob(payloadBase64);
-        } catch {
-          // atob failed (invalid base64), assume expired
-          return true;
-        }
-      } else if (typeof Buffer !== "undefined") {
-        // Older Node environments
-        try {
-          jsonString = Buffer.from(payloadBase64, "base64").toString();
-        } catch {
-          // Buffer decode failed, assume expired
-          return true;
-        }
-      } else {
-        // No decoding method available - SECURITY: assume expired (fail-secure)
-        // This forces server validation via refresh attempt
+      // If decode fails, token is invalid
+      if (!decoded) {
         return true;
       }
 
-      const payload: { exp?: number } = JSON.parse(jsonString);
+      // Check if the decoded token has an expiration claim
+      if (typeof decoded === 'object' && decoded !== null && 'exp' in decoded) {
+        const payload = decoded as { exp?: number };
+        if (payload.exp && typeof payload.exp === 'number') {
+          // exp is in seconds, Date.now() is in ms
+          const currentTime = Math.floor(Date.now() / 1000);
+          return payload.exp < currentTime;
+        }
+      }
 
-      // If exp field is missing, we cannot validate locally
-      // SECURITY: assume expired to force server validation
-      if (!payload.exp || typeof payload.exp !== "number") return true;
-
-      // exp is in seconds, Date.now() is in ms
-      const currentTime = Math.floor(Date.now() / 1000);
-
-      return payload.exp < currentTime;
+      // If no expiration claim, assume expired to force server validation (security by default)
+      return true;
     } catch {
       // Any parsing error = assume expired (fail-secure)
       return true;

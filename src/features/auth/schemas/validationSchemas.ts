@@ -36,21 +36,25 @@ import type {
 export const EmailSchema = z
   .string()
   .email("Invalid email format")
-  .min(1, "Email is required");
+  .min(1, "Email is required")
+  .max(254, "Email is too long"); // Standard email max length
 
 export const PasswordSchema = z
   .string()
   .min(1, "Password is required")
-  .min(8, "Password must be at least 8 characters");
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password is too long"); // Reasonable max length
 
 export const OtpSchema = z
   .string()
-  .regex(/^\d{4,6}$/, "OTP must be a 4-6 digit code");
+  .regex(/^\d{4,6}$/, "OTP must be a 4-6 digit code")
+  .max(10, "OTP is too long"); // Additional safety limit
 
 export const ActionTokenSchema = z
   .string()
   .min(1, "Action token is required")
-  .min(20, "Invalid action token format");
+  .min(20, "Invalid action token format")
+  .max(512, "Action token is too long"); // Reasonable max length for tokens
 
 // ============================================================================
 // DTO Schemas
