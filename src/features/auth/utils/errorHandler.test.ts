@@ -89,5 +89,14 @@ describe("errorHandler", () => {
 
       expect(() => wrappedFn()).toThrow("Sync Error");
     });
+
+    it("should handle non-axios errors thrown synchronously", () => {
+      const mockFn = () => {
+        throw new Error("Non-axios sync error");
+      };
+      const wrappedFn = withErrorHandling(mockFn);
+
+      expect(() => wrappedFn()).toThrow("Non-axios sync error");
+    });
   });
 });

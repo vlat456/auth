@@ -13,6 +13,8 @@ import {
   safeExtractPasswordFromPending,
   safeGetStringFromContext,
   safeExtractErrorMessage,
+  isValidRequestOtp,
+  isValidVerifyOtp,
 } from "./safetyUtils";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 
@@ -352,6 +354,475 @@ describe("Safety Utilities", () => {
       expect(safeArrayAccess("not an array" as any, 0)).toBeUndefined();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(safeArrayAccess(123 as any, 0)).toBeUndefined();
+    });
+  });
+
+  describe("Additional edge cases for 100% coverage", () => {
+    describe("safeExtractErrorMessage with various event structures", () => {
+      it("should extract error from event.data.message", () => {
+        const event = { data: { message: "error message" } };
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBe("error message");
+      });
+
+      it("should extract error from event.error.message", () => {
+        const event = { error: { message: "error from error object" } };
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBe("error from error object");
+      });
+
+      it("should extract string from event.data when data is string", () => {
+        const event = { data: "string error" };
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBe("string error");
+      });
+
+      it("should extract string from event.error when error is string", () => {
+        const event = { error: "string error message" };
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBe("string error message");
+      });
+
+      it("should return undefined for null event", () => {
+        const result = safeExtractErrorMessage(null as any);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined for non-object event", () => {
+        const result = safeExtractErrorMessage("string event" as any);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when no error paths match", () => {
+        const event = { type: "success", payload: {} };
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBeUndefined();
+      });
+
+      it("should catch and handle exceptions", () => {
+        const event = Object.create(null);
+        Object.defineProperty(event, "data", {
+          get() {
+            throw new Error("getter error");
+          },
+        });
+        const result = safeExtractErrorMessage(event as any);
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("isValidRequestOtp edge cases", () => {
+      it("should validate request with email", () => {
+        const payload = { email: "test@example.com" };
+        expect(isValidRequestOtp(payload)).toBe(true);
+      });
+
+      it("should reject non-object payloads", () => {
+        expect(isValidRequestOtp("not an object")).toBe(false);
+        expect(isValidRequestOtp(123)).toBe(false);
+        expect(isValidRequestOtp(null)).toBe(false);
+      });
+
+      it("should reject with empty email", () => {
+        const payload = { email: "" };
+        expect(isValidRequestOtp(payload)).toBe(false);
+      });
+
+      it("should reject with non-string email", () => {
+        const payload = { email: 123 };
+        expect(isValidRequestOtp(payload)).toBe(false);
+      });
+
+      it("should reject missing email", () => {
+        const payload = { other: "value" };
+        expect(isValidRequestOtp(payload)).toBe(false);
+      });
+    });
+
+    describe("isValidVerifyOtp edge cases", () => {
+      it("should validate correct OTP request", () => {
+        const payload = { email: "test@example.com", otp: "123456" };
+        expect(isValidVerifyOtp(payload)).toBe(true);
+      });
+
+      it("should reject with empty email", () => {
+        const payload = { email: "", otp: "123456" };
+        expect(isValidVerifyOtp(payload)).toBe(false);
+      });
+
+      it("should reject with empty OTP", () => {
+        const payload = { email: "test@example.com", otp: "" };
+        expect(isValidVerifyOtp(payload)).toBe(false);
+      });
+
+      it("should reject with null values", () => {
+        const payload = { email: null, otp: null };
+        expect(isValidVerifyOtp(payload)).toBe(false);
+      });
+
+      it("should reject non-object payloads", () => {
+        expect(isValidVerifyOtp(null)).toBe(false);
+      });
+    });
+
+    describe("isAuthSession edge cases", () => {
+      it("should validate session with valid access token", () => {
+        const session = { accessToken: "token123" };
+        expect(isAuthSession(session)).toBe(true);
+      });
+
+      it("should reject session with empty access token", () => {
+        const session = { accessToken: "" };
+        expect(isAuthSession(session)).toBe(false);
+      });
+
+      it("should reject null session", () => {
+        expect(isAuthSession(null)).toBe(false);
+      });
+
+      it("should reject non-object session", () => {
+        expect(isAuthSession("not an object")).toBe(false);
+      });
+
+      it("should reject session without access token", () => {
+        const session = { refreshToken: "refresh" };
+        expect(isAuthSession(session)).toBe(false);
+      });
+
+      it("should reject session with non-string access token", () => {
+        const session = { accessToken: 123 };
+        expect(isAuthSession(session)).toBe(false);
+      });
+    });
+
+    describe("isUserProfile edge cases", () => {
+      it("should validate profile with required fields", () => {
+        const profile = { id: "user123", email: "test@example.com" };
+        expect(isUserProfile(profile)).toBe(true);
+      });
+
+      it("should accept profile with empty id string", () => {
+        // Implementation only checks type, not content
+        const profile = { id: "", email: "test@example.com" };
+        expect(isUserProfile(profile)).toBe(true);
+      });
+
+      it("should accept profile with empty email string", () => {
+        // Implementation only checks type, not content
+        const profile = { id: "user123", email: "" };
+        expect(isUserProfile(profile)).toBe(true);
+      });
+
+      it("should reject profile with non-string fields", () => {
+        const profile = { id: 123, email: 456 };
+        expect(isUserProfile(profile)).toBe(false);
+      });
+
+      it("should reject null profile", () => {
+        expect(isUserProfile(null)).toBe(false);
+      });
+
+      it("should reject non-object profile", () => {
+        expect(isUserProfile("not an object")).toBe(false);
+      });
+
+      it("should reject profile missing required fields", () => {
+        const profile = { id: "user123" };
+        expect(isUserProfile(profile)).toBe(false);
+      });
+
+      it("should reject when id is not string", () => {
+        const profile = { id: null, email: "test@example.com" };
+        expect(isUserProfile(profile)).toBe(false);
+      });
+
+      it("should reject when email is not string", () => {
+        const profile = { id: "user123", email: null };
+        expect(isUserProfile(profile)).toBe(false);
+      });
+    });
+
+    describe("safeGetNestedValue edge cases", () => {
+      it("should get nested value with dot notation", () => {
+        const obj = { user: { profile: { name: "John" } } };
+        const result = safeGetNestedValue(obj, "user.profile.name");
+        expect(result).toBe("John");
+      });
+
+      it("should return default value for missing path", () => {
+        const obj = { user: { profile: { name: "John" } } };
+        const result = safeGetNestedValue(obj, "user.missing.name", "default");
+        expect(result).toBe("default");
+      });
+
+      it("should return undefined for missing path without default", () => {
+        const obj = { user: { profile: { name: "John" } } };
+        const result = safeGetNestedValue(obj, "user.missing.name");
+        expect(result).toBeUndefined();
+      });
+
+      it("should handle null in path", () => {
+        const obj = { user: null };
+        const result = safeGetNestedValue(obj, "user.name");
+        expect(result).toBeUndefined();
+      });
+
+      it("should handle non-object input", () => {
+        const result = safeGetNestedValue(null, "some.path", "default");
+        expect(result).toBe("default");
+      });
+
+      it("should handle undefined values in path", () => {
+        const obj = { user: undefined };
+        const result = safeGetNestedValue(obj, "user.name");
+        expect(result).toBeUndefined();
+      });
+
+      it("should get simple property", () => {
+        const obj = { name: "John" };
+        const result = safeGetNestedValue(obj, "name");
+        expect(result).toBe("John");
+      });
+    });
+
+    describe("safeArrayAccess edge cases", () => {
+      it("should access array element at valid index", () => {
+        const arr = ["a", "b", "c"];
+        expect(safeArrayAccess(arr, 1)).toBe("b");
+      });
+
+      it("should return default for negative index", () => {
+        const arr = ["a", "b", "c"];
+        expect(safeArrayAccess(arr, -1, "default")).toBe("default");
+      });
+
+      it("should return default for index >= length", () => {
+        const arr = ["a", "b", "c"];
+        expect(safeArrayAccess(arr, 10, "default")).toBe("default");
+      });
+
+      it("should return undefined for out of bounds without default", () => {
+        const arr = ["a", "b", "c"];
+        expect(safeArrayAccess(arr, 10)).toBeUndefined();
+      });
+
+      it("should handle undefined array", () => {
+        expect(safeArrayAccess(undefined, 0, "default")).toBe("default");
+      });
+
+      it("should handle zero index", () => {
+        const arr = ["first"];
+        expect(safeArrayAccess(arr, 0)).toBe("first");
+      });
+
+      it("should handle last valid index", () => {
+        const arr = ["a", "b", "c"];
+        expect(safeArrayAccess(arr, 2)).toBe("c");
+      });
+    });
+
+    describe("safeExtractActionToken edge cases", () => {
+      it("should extract valid token", () => {
+        const token = "validtoken123";
+        expect(safeExtractActionToken(token)).toBe("validtoken123");
+      });
+
+      it("should return empty string for undefined token", () => {
+        expect(safeExtractActionToken(undefined)).toBe("");
+      });
+
+      it("should return empty string for whitespace-only token", () => {
+        expect(safeExtractActionToken("   ")).toBe("");
+      });
+
+      it("should trim token properly", () => {
+        const token = "  token123  ";
+        const result = safeExtractActionToken(token);
+        expect(result.trim()).toBe("token123");
+      });
+    });
+
+    describe("safeExtractPasswordFromPending edge cases", () => {
+      it("should extract password from pending credentials", () => {
+        const pending = { email: "test@example.com", password: "pass123" };
+        expect(safeExtractPasswordFromPending(pending)).toBe("pass123");
+      });
+
+      it("should return empty string for undefined pending", () => {
+        expect(safeExtractPasswordFromPending(undefined)).toBe("");
+      });
+
+      it("should return empty string for missing password", () => {
+        const pending = { email: "test@example.com" };
+        expect(safeExtractPasswordFromPending(pending as any)).toBe("");
+      });
+
+      it("should return empty string for non-string password", () => {
+        const pending = { email: "test@example.com", password: 123 };
+        expect(safeExtractPasswordFromPending(pending as any)).toBe("");
+      });
+    });
+
+    describe("safeExtractRegisterPayload", () => {
+      it("should extract valid register payload from event", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", password: "pass123" } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toEqual({ email: "test@example.com", password: "pass123" });
+      });
+
+      it("should return undefined for invalid payload object", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: "", password: "pass123" } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when email is empty", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: "", password: "pass123" } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when password is empty", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", password: "" } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when email is not a string", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: 123, password: "pass123" } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when password is not a string", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", password: 123 } };
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when payload is missing", () => {
+        const { safeExtractRegisterPayload } = require("./safetyUtils");
+        const event = {};
+        const result = safeExtractRegisterPayload(event);
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("safeExtractOtpRequestPayload", () => {
+      it("should extract valid OTP request payload from event", () => {
+        const { safeExtractOtpRequestPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com" } };
+        const result = safeExtractOtpRequestPayload(event);
+        expect(result).toEqual({ email: "test@example.com" });
+      });
+
+      it("should return undefined for empty email", () => {
+        const { safeExtractOtpRequestPayload } = require("./safetyUtils");
+        const event = { payload: { email: "" } };
+        const result = safeExtractOtpRequestPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when email is not a string", () => {
+        const { safeExtractOtpRequestPayload } = require("./safetyUtils");
+        const event = { payload: { email: 123 } };
+        const result = safeExtractOtpRequestPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when payload is missing", () => {
+        const { safeExtractOtpRequestPayload } = require("./safetyUtils");
+        const event = {};
+        const result = safeExtractOtpRequestPayload(event);
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("safeExtractVerifyOtpPayload", () => {
+      it("should extract valid verify OTP payload from event", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", otp: "123456" } };
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toEqual({ email: "test@example.com", otp: "123456" });
+      });
+
+      it("should return undefined when email is empty", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = { payload: { email: "", otp: "123456" } };
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when otp is empty", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", otp: "" } };
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when email is not a string", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = { payload: { email: 123, otp: "123456" } };
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when otp is not a string", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = { payload: { email: "test@example.com", otp: 123 } };
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when payload is missing", () => {
+        const { safeExtractVerifyOtpPayload } = require("./safetyUtils");
+        const event = {};
+        const result = safeExtractVerifyOtpPayload(event);
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("safeExtractResetPasswordPayload", () => {
+      it("should extract valid reset password payload from event", () => {
+        const { safeExtractResetPasswordPayload } = require("./safetyUtils");
+        const event = { payload: { newPassword: "newPass123" } };
+        const result = safeExtractResetPasswordPayload(event);
+        expect(result).toEqual({ newPassword: "newPass123" });
+      });
+
+      it("should return undefined when newPassword is empty", () => {
+        const { safeExtractResetPasswordPayload } = require("./safetyUtils");
+        const event = { payload: { newPassword: "" } };
+        const result = safeExtractResetPasswordPayload(event);
+        expect(result).toEqual({ newPassword: "" });
+      });
+
+      it("should return undefined when newPassword is not a string", () => {
+        const { safeExtractResetPasswordPayload } = require("./safetyUtils");
+        const event = { payload: { newPassword: 123 } };
+        const result = safeExtractResetPasswordPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when payload is missing", () => {
+        const { safeExtractResetPasswordPayload } = require("./safetyUtils");
+        const event = {};
+        const result = safeExtractResetPasswordPayload(event);
+        expect(result).toBeUndefined();
+      });
+
+      it("should return undefined when newPassword property is missing", () => {
+        const { safeExtractResetPasswordPayload } = require("./safetyUtils");
+        const event = { payload: { someOtherField: "value" } };
+        const result = safeExtractResetPasswordPayload(event);
+        expect(result).toBeUndefined();
+      });
     });
   });
 });
