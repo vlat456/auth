@@ -2,9 +2,9 @@
  * React Native Authentication Interface
  * Provides a simple interface to access auth functions from React Native
  */
-import { LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, AuthSession, ChangePasswordRequestDTO, DeleteAccountRequestDTO } from './features/auth/types';
+import { LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, AuthSession, ChangePasswordRequestDTO, DeleteAccountRequestDTO } from "./features/auth/types";
 export declare class ReactNativeAuthInterface {
-    private authRepository;
+    private authService;
     constructor(apiBaseURL?: string);
     /**
      * Login with email and password
@@ -41,17 +41,21 @@ export declare class ReactNativeAuthInterface {
     /**
      * Refresh session using refresh token
      */
-    refresh(refreshToken: string): Promise<AuthSession>;
+    refresh(): Promise<AuthSession | null>;
     /**
      * Change user password
      */
-    changePassword(payload: ChangePasswordRequestDTO): Promise<void>;
+    changePassword(_payload: ChangePasswordRequestDTO): Promise<void>;
     /**
      * Delete user account
      */
-    deleteAccount(payload: DeleteAccountRequestDTO): Promise<void>;
+    deleteAccount(_payload: DeleteAccountRequestDTO): Promise<void>;
     /**
      * Get the current session without validation
      */
-    getCurrentSession(): Promise<AuthSession | null>;
+    getCurrentSession(): AuthSession | null;
+    /**
+     * Get the current auth state
+     */
+    getAuthState(): string | object;
 }

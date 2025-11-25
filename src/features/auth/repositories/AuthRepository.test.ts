@@ -118,14 +118,13 @@ describe("AuthRepository (Stateless)", () => {
   });
 
   describe("refresh", () => {
-    it("should call the refresh endpoint, fetch profile, and save the new session", async () => {
+    it("should call the refresh endpoint and save the new session without fetching profile", async () => {
       const oldSession: AuthSession = {
         accessToken: "old-token",
         refreshToken: "refresh-token",
         profile: { id: "1", email: "old@test.com" },
       };
       const newAccessToken = "new-access-token";
-      const freshProfile = { id: "1", email: "new@test.com" };
 
       (mockStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify(oldSession)
@@ -139,10 +138,6 @@ describe("AuthRepository (Stateless)", () => {
         },
       });
 
-      mockAxiosInstance.get.mockResolvedValue({
-        data: freshProfile,
-      });
-
       const result = await repository.refresh("refresh-token");
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
@@ -152,14 +147,15 @@ describe("AuthRepository (Stateless)", () => {
         }
       );
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/auth/me", {
+      // Verify that the profile fetch endpoint was NOT called (it's now handled by state machine)
+      expect(mockAxiosInstance.get).not.toHaveBeenCalledWith("/auth/me", {
         headers: { Authorization: `Bearer ${newAccessToken}` },
       });
 
       const expectedSession: AuthSession = {
         accessToken: newAccessToken,
         refreshToken: "refresh-token",
-        profile: freshProfile,
+        profile: oldSession.profile, // Profile should be preserved from existing session
       };
 
       expect(mockStorage.setItem).toHaveBeenCalledWith(

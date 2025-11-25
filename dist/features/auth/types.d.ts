@@ -82,5 +82,10 @@ export interface IAuthRepository {
     completePasswordReset(payload: CompletePasswordResetDTO): Promise<void>;
     checkSession(): Promise<AuthSession | null>;
     refresh(refreshToken: string): Promise<AuthSession>;
+    /**
+     * Refreshes the current user's profile data without requiring token refresh.
+     * Useful when profile might be stale (role changes, account status updates, etc.)
+     */
+    refreshProfile(): Promise<AuthSession | null>;
     logout(): Promise<void>;
 }

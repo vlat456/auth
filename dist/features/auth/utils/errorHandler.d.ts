@@ -1,7 +1,22 @@
 /**
- * Handles API errors and throws a user-friendly error
+ * Custom error class that preserves original error context while providing user-friendly messages
+ */
+export declare class ApiError extends Error {
+    originalError?: unknown;
+    status?: number;
+    code?: string;
+    response?: any;
+    constructor(message: string, options?: {
+        originalError?: unknown;
+        status?: number;
+        code?: string;
+        response?: any;
+    });
+}
+/**
+ * Handles API errors preserving original error context while making it available for state machine transitions
  * @param error The error object to handle
- * @throws Always throws an error - never returns
+ * @throws ApiError with preserved context
  */
 export declare function handleApiError(error: unknown): never;
 /**

@@ -3,7 +3,7 @@
  * Version: 0.2.0
  */
 
-import { setup, assign, fromPromise } from "xstate";
+import { setup, assign, fromPromise, assertEvent } from "xstate";
 import {
   AuthSession,
   AuthError,
@@ -16,15 +16,6 @@ import {
   IAuthRepository,
 } from "../types";
 import {
-  safeExtractSessionOutput,
-  safeExtractRegisterPayload,
-  safeExtractOtpRequestPayload,
-  safeExtractResetPasswordPayload,
-  safeExtractEmail,
-  safeExtractOtp,
-  safeExtractLoginPayload,
-  safeExtractErrorMessage,
-  safeExtractOutput,
   resolveRegistrationPassword,
   hasValidCredentials,
 } from "../utils/safetyUtils";
@@ -53,11 +44,17 @@ export type AuthEvent =
   | { type: "GO_TO_LOGIN" }
   | { type: "GO_TO_FORGOT_PASSWORD" };
 
+// Extended event type that includes both user events and system events
+export type EventWithSystem =
+  | AuthEvent
+  | { type: `xstate.done.actor.${string}`; output: any }
+  | { type: `xstate.error.actor.${string}`; error: any };
+
 export const createAuthMachine = (authRepository: IAuthRepository) => {
   return setup({
     types: {} as {
       context: AuthContext;
-      events: AuthEvent;
+      events: EventWithSystem;
     },
     actors: {
       checkSession: fromPromise(async () => {
@@ -111,15 +108,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       ),
       validateSessionWithServer: fromPromise(
         async ({ input }: { input: { session: AuthSession } }) => {
-          // In the new architecture, validation happens through direct API calls
-          // The machine will decide what to do based on the result
+          // Fetch fresh profile data using the new access token to avoid stale user data
           try {
-            // Attempt to validate by making an authenticated request
-            // This would require the repository to have a method to check session validity
-            // For now, we'll just return the session and let the machine handle validation
-            return input.session;
+            // Use the repository's refreshProfile method which fetches profile using the stored token
+            return await authRepository.refreshProfile();
           } catch (error) {
-            return null;
+            // If profile fetch fails, return the session without updated profile
+            return input.session;
           }
         }
       ),
@@ -127,18 +122,33 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
     actions: {
       setSession: assign({
         session: ({ event }) => {
-          // SECURITY: Use safe extraction instead of (event as any)
-          const output = safeExtractSessionOutput(event);
-          return output ?? null;
+          // Use type guard for done events that produce a session
+          if (
+            (event.type as string).includes("done.actor") &&
+            "output" in event
+          ) {
+            return (event as any).output ?? null;
+          }
+          return null;
         },
         error: null,
       }),
       setError: assign({
         error: ({ event }) => {
-          // SECURITY: Safely extract error message
-          const msg =
-            safeExtractErrorMessage(event) || "An unexpected error occurred";
-          return { message: msg };
+          // All xstate error events have the error property, but we can't assertEvent to all
+          // since we don't know all possible error event types. Use type guard instead.
+          if (
+            "error" in event &&
+            typeof event.error === "object" &&
+            event.error !== null &&
+            "message" in event.error
+          ) {
+            const msg =
+              (event.error as { message: string }).message ||
+              "An unexpected error occurred";
+            return { message: msg };
+          }
+          return { message: "An unexpected error occurred" };
         },
       }),
       clearError: assign({
@@ -149,8 +159,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       }),
       setEmailFromPayload: assign({
         email: ({ event }) => {
-          // SECURITY: Use safe extraction instead of (event as any)
-          return safeExtractEmail(event);
+          // Use assertEvent to ensure event has expected type and payload
+          assertEvent(event, ["REGISTER", "FORGOT_PASSWORD"]);
+          return event.payload.email;
         },
       }),
       clearForgotPasswordContext: assign({
@@ -165,9 +176,12 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       }),
       setPendingCredentials: assign({
         pendingCredentials: ({ event }) => {
-          // SECURITY: Validate payload before assigning
-          const payload = safeExtractRegisterPayload(event);
-          return payload as LoginRequestDTO | undefined;
+          // Use assertEvent to ensure event is a REGISTER event with payload
+          assertEvent(event, "REGISTER");
+          return {
+            email: event.payload.email,
+            password: event.payload.password,
+          };
         },
       }),
       clearPendingCredentials: assign({
@@ -175,29 +189,47 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       }),
       setRegistrationActionToken: assign({
         registrationActionToken: ({ event }) => {
-          // SECURITY: Safely extract action token from output
-          const output = safeExtractOutput<string>(event);
-          return typeof output === "string" ? output : undefined;
+          // Use type guard to validate this is a done event from verifyOtp actor
+          if (
+            (event.type as string).includes("done.actor") &&
+            "output" in event
+          ) {
+            const output = (event as any).output;
+            return typeof output === "string" ? output : undefined;
+          }
+          return undefined;
         },
       }),
       setResetActionToken: assign({
         resetActionToken: ({ event }) => {
-          // SECURITY: Safely extract action token from output
-          const output = safeExtractOutput<string>(event);
-          return typeof output === "string" ? output : undefined;
+          // Use type guard to validate this is a done event from verifyOtp actor (in forgot password flow too)
+          if (
+            (event.type as string).includes("done.actor") &&
+            "output" in event
+          ) {
+            const output = (event as any).output;
+            return typeof output === "string" ? output : undefined;
+          }
+          return undefined;
         },
       }),
       setPendingCredentialsFromNewPassword: assign({
         pendingCredentials: ({ context, event }) => {
-          // SECURITY: Use safe extraction instead of (event as any)
-          const resetPayload = safeExtractResetPasswordPayload(event);
-          if (!resetPayload) {
-            return undefined;
+          // Extract newPassword from RESET_PASSWORD event
+          if (event.type === "RESET_PASSWORD" && "payload" in event) {
+            const payload = (event as any).payload;
+            if (
+              payload &&
+              typeof payload === "object" &&
+              "newPassword" in payload
+            ) {
+              return {
+                email: context.email ?? "",
+                password: (payload as any).newPassword,
+              };
+            }
           }
-          return {
-            email: context.email ?? "",
-            password: resetPayload.newPassword,
-          };
+          return undefined;
         },
       }),
     },
@@ -234,10 +266,35 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
           src: "validateSessionWithServer",
           input: ({ context }) => ({ session: context.session! }),
           onDone: {
-            target: "authorized",
+            target: "fetchingProfileAfterValidation",
           },
           onError: {
             target: "refreshingToken", // If validation fails, try to refresh
+          },
+        },
+      },
+      fetchingProfileAfterValidation: {
+        invoke: {
+          src: "validateSessionWithServer", // This will fetch the profile
+          input: ({ context }) => ({ session: context.session! }),
+          onDone: {
+            target: "authorized",
+            actions: [
+              assign({
+                session: ({ event }: any) => event.output as AuthSession,
+              }),
+            ],
+          },
+          onError: {
+            target: "authorized", // If profile fetch fails, still go to authorized with existing session
+            actions: [
+              assign({
+                session: ({ context }: { context: AuthContext }) => {
+                  // Use the session from the context if profile fetch fails
+                  return context.session || null;
+                },
+              }),
+            ],
           },
         },
       },
@@ -253,18 +310,46 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             refreshToken: context.session?.refreshToken || "",
           }),
           onDone: {
-            target: "authorized",
-            actions: assign({
-              // @ts-expect-error - XState type inference with generic actor types
-              session: (_, event) => event?.output || null, // Update session from event data
-            }),
+            target: "fetchingProfileAfterRefresh",
+            actions: [
+              assign({
+                session: ({ event }: any) => event.output as AuthSession,
+              }),
+            ],
           },
           onError: {
             target: "unauthorized", // Go to unauthenticated state if refresh fails
-            actions: assign({
-              session: null,
-              error: (_, event) => ({ message: "Session refresh failed" }),
-            }),
+            actions: [
+              assign({
+                session: () => null,
+                error: () => ({ message: "Session refresh failed" }),
+              }),
+            ],
+          },
+        },
+      },
+      fetchingProfileAfterRefresh: {
+        invoke: {
+          src: "validateSessionWithServer",
+          input: ({ context }) => ({ session: context.session! }),
+          onDone: {
+            target: "authorized",
+            actions: [
+              assign({
+                session: ({ event }: any) => event.output as AuthSession,
+              }),
+            ],
+          },
+          onError: {
+            target: "authorized", // If profile fetch fails, still go to authorized with existing session
+            actions: [
+              assign({
+                session: ({ context }: { context: AuthContext }) => {
+                  // Use the session from the context if profile fetch fails
+                  return context.session || null;
+                },
+              }),
+            ],
           },
         },
       },
@@ -297,8 +382,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "loginUser",
                   input: ({ event }) => {
-                    const payload = safeExtractLoginPayload(event);
-                    return payload || { email: "", password: "" };
+                    assertEvent(event, "LOGIN");
+                    return event.payload;
                   },
                   onDone: {
                     target: "#auth.authorized",
@@ -397,9 +482,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "registerUser",
                   input: ({ event }) => {
-                    // SECURITY: Validate register payload before use
-                    const payload = safeExtractRegisterPayload(event);
-                    return payload || { email: "", password: "" };
+                    assertEvent(event, "REGISTER");
+                    return event.payload;
                   },
                   onDone: "verifyOtp",
                   onError: {
@@ -423,10 +507,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               verifyingOtp: {
                 invoke: {
                   src: "verifyOtp",
-                  input: ({ context, event }) => ({
-                    email: context.email ?? "",
-                    otp: safeExtractOtp(event) ?? "",
-                  }),
+                  input: ({ context, event }) => {
+                    assertEvent(event, "VERIFY_OTP");
+                    return {
+                      email: context.email ?? "",
+                      otp: event.payload.otp,
+                    };
+                  },
                   onDone: {
                     target: "completingRegistration",
                     actions: "setRegistrationActionToken",
@@ -511,8 +598,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 invoke: {
                   src: "requestPasswordReset",
                   input: ({ event }) => {
-                    const payload = safeExtractOtpRequestPayload(event);
-                    return payload || { email: "" };
+                    assertEvent(event, "FORGOT_PASSWORD");
+                    return event.payload;
                   },
                   onDone: "verifyOtp",
                   onError: {
@@ -536,10 +623,13 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               verifyingOtp: {
                 invoke: {
                   src: "verifyOtp",
-                  input: ({ context, event }) => ({
-                    email: context.email ?? "",
-                    otp: safeExtractOtp(event) ?? "",
-                  }),
+                  input: ({ context, event }) => {
+                    assertEvent(event, "VERIFY_OTP");
+                    return {
+                      email: context.email ?? "",
+                      otp: event.payload.otp,
+                    };
+                  },
                   onDone: {
                     target: "resetPassword",
                     actions: "setResetActionToken",

@@ -4,26 +4,24 @@
  * Version: 0.2.0
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createAuthMachine = exports.resolveRegistrationPassword = void 0;
+exports.createAuthMachine = void 0;
 const xstate_1 = require("xstate");
-const resolveRegistrationPassword = (pending) => {
-    if (pending &&
-        typeof pending.password === "string" &&
-        pending.password.length > 0) {
-        return pending.password;
-    }
-    return "";
-};
-exports.resolveRegistrationPassword = resolveRegistrationPassword;
+const safetyUtils_1 = require("../utils/safetyUtils");
 const createAuthMachine = (authRepository) => {
     return (0, xstate_1.setup)({
-        types: {
-            context: {},
-            events: {},
-        },
+        types: {},
         actors: {
-            checkSessionParams: (0, xstate_1.fromPromise)(async () => {
+            checkSession: (0, xstate_1.fromPromise)(async () => {
                 return await authRepository.checkSession();
+            }),
+            validateAndRefreshSessionIfNeeded: (0, xstate_1.fromPromise)(async ({ input }) => {
+                // Simple direct call to the simplified repository
+                const currentSession = input.session || (await authRepository.checkSession());
+                if (!currentSession)
+                    return null;
+                // If we need refresh logic, it should be handled in the machine
+                // For now, return the session as is
+                return currentSession;
             }),
             loginUser: (0, xstate_1.fromPromise)(async ({ input }) => {
                 return await authRepository.login(input);
@@ -46,17 +44,47 @@ const createAuthMachine = (authRepository) => {
             logoutUser: (0, xstate_1.fromPromise)(async () => {
                 return await authRepository.logout();
             }),
+            refreshToken: (0, xstate_1.fromPromise)(async ({ input }) => {
+                return await authRepository.refresh(input.refreshToken);
+            }),
+            validateSessionWithServer: (0, xstate_1.fromPromise)(async ({ input }) => {
+                // Fetch fresh profile data using the new access token to avoid stale user data
+                try {
+                    // Use the repository's refreshProfile method which fetches profile using the stored token
+                    return await authRepository.refreshProfile();
+                }
+                catch (error) {
+                    // If profile fetch fails, return the session without updated profile
+                    return input.session;
+                }
+            }),
         },
         actions: {
             setSession: (0, xstate_1.assign)({
-                session: ({ event }) => event.output,
+                session: ({ event }) => {
+                    // Use type guard for done events that produce a session
+                    if (event.type.includes("done.actor") &&
+                        "output" in event) {
+                        return event.output ?? null;
+                    }
+                    return null;
+                },
                 error: null,
             }),
             setError: (0, xstate_1.assign)({
-                error: ({ event }) => ({
-                    message: event.error?.message ||
-                        "An unexpected error occurred",
-                }),
+                error: ({ event }) => {
+                    // All xstate error events have the error property, but we can't assertEvent to all
+                    // since we don't know all possible error event types. Use type guard instead.
+                    if ("error" in event &&
+                        typeof event.error === "object" &&
+                        event.error !== null &&
+                        "message" in event.error) {
+                        const msg = event.error.message ||
+                            "An unexpected error occurred";
+                        return { message: msg };
+                    }
+                    return { message: "An unexpected error occurred" };
+                },
             }),
             clearError: (0, xstate_1.assign)({
                 error: null,
@@ -65,7 +93,11 @@ const createAuthMachine = (authRepository) => {
                 session: null,
             }),
             setEmailFromPayload: (0, xstate_1.assign)({
-                email: ({ event }) => event.payload?.email,
+                email: ({ event }) => {
+                    // Use assertEvent to ensure event has expected type and payload
+                    (0, xstate_1.assertEvent)(event, ["REGISTER", "FORGOT_PASSWORD"]);
+                    return event.payload.email;
+                },
             }),
             clearForgotPasswordContext: (0, xstate_1.assign)({
                 email: undefined,
@@ -78,22 +110,54 @@ const createAuthMachine = (authRepository) => {
                 pendingCredentials: undefined,
             }),
             setPendingCredentials: (0, xstate_1.assign)({
-                pendingCredentials: ({ event }) => event.payload,
+                pendingCredentials: ({ event }) => {
+                    // Use assertEvent to ensure event is a REGISTER event with payload
+                    (0, xstate_1.assertEvent)(event, "REGISTER");
+                    return {
+                        email: event.payload.email,
+                        password: event.payload.password,
+                    };
+                },
             }),
             clearPendingCredentials: (0, xstate_1.assign)({
                 pendingCredentials: undefined,
             }),
             setRegistrationActionToken: (0, xstate_1.assign)({
-                registrationActionToken: ({ event }) => event.output,
+                registrationActionToken: ({ event }) => {
+                    // Use type guard to validate this is a done event from verifyOtp actor
+                    if (event.type.includes("done.actor") &&
+                        "output" in event) {
+                        const output = event.output;
+                        return typeof output === "string" ? output : undefined;
+                    }
+                    return undefined;
+                },
             }),
             setResetActionToken: (0, xstate_1.assign)({
-                resetActionToken: ({ event }) => event.output,
+                resetActionToken: ({ event }) => {
+                    // Use type guard to validate this is a done event from verifyOtp actor (in forgot password flow too)
+                    if (event.type.includes("done.actor") &&
+                        "output" in event) {
+                        const output = event.output;
+                        return typeof output === "string" ? output : undefined;
+                    }
+                    return undefined;
+                },
             }),
             setPendingCredentialsFromNewPassword: (0, xstate_1.assign)({
-                pendingCredentials: ({ context, event }) => ({
-                    email: context.email ?? "",
-                    password: event.payload.newPassword,
-                }),
+                pendingCredentials: ({ context, event }) => {
+                    // Extract newPassword from RESET_PASSWORD event
+                    if (event.type === "RESET_PASSWORD" && "payload" in event) {
+                        const payload = event.payload;
+                        if (payload && typeof payload === "object" && "newPassword" in payload) {
+                            return {
+                                email: context.email ?? "",
+                                password: payload.newPassword,
+                            };
+                        }
+                    }
+                    return undefined;
+                },
             }),
         },
     }).createMachine({
@@ -106,12 +170,12 @@ const createAuthMachine = (authRepository) => {
         states: {
             checkingSession: {
                 invoke: {
-                    src: "checkSessionParams",
+                    src: "checkSession",
                     onDone: [
                         {
                             guard: ({ event }) => !!event.output,
-                            target: "authorized",
-                            actions: "setSession",
+                            target: "validatingSession",
+                            actions: (0, xstate_1.assign)({ session: ({ event }) => event.output }),
                         },
                         { target: "unauthorized" },
                     ],
@@ -120,8 +184,105 @@ const createAuthMachine = (authRepository) => {
                     },
                 },
             },
+            validatingSession: {
+                on: {
+                    COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess",
+                },
+                invoke: {
+                    src: "validateSessionWithServer",
+                    input: ({ context }) => ({ session: context.session }),
+                    onDone: {
+                        target: "fetchingProfileAfterValidation",
+                    },
+                    onError: {
+                        target: "refreshingToken", // If validation fails, try to refresh
+                    },
+                },
+            },
+            fetchingProfileAfterValidation: {
+                invoke: {
+                    src: "validateSessionWithServer", // This will fetch the profile
+                    input: ({ context }) => ({ session: context.session }),
+                    onDone: {
+                        target: "authorized",
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: ({ event }) => event.output,
+                            }),
+                        ],
+                    },
+                    onError: {
+                        target: "authorized", // If profile fetch fails, still go to authorized with existing session
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: ({ context }) => {
+                                    // Use the session from the context if profile fetch fails
+                                    return context.session || null;
+                                },
+                            }),
+                        ],
+                    },
+                },
+            },
+            refreshingToken: {
+                on: {
+                    COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess",
+                },
+                invoke: {
+                    id: "refresh-token",
+                    src: "refreshToken",
+                    input: ({ context }) => ({
+                        refreshToken: context.session?.refreshToken || "",
+                    }),
+                    onDone: {
+                        target: "fetchingProfileAfterRefresh",
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: ({ event }) => event.output,
+                            }),
+                        ],
+                    },
+                    onError: {
+                        target: "unauthorized", // Go to unauthenticated state if refresh fails
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: () => null,
+                                error: () => ({ message: "Session refresh failed" }),
+                            }),
+                        ],
+                    },
+                },
+            },
+            fetchingProfileAfterRefresh: {
+                invoke: {
+                    src: "validateSessionWithServer",
+                    input: ({ context }) => ({ session: context.session }),
+                    onDone: {
+                        target: "authorized",
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: ({ event }) => event.output,
+                            }),
+                        ],
+                    },
+                    onError: {
+                        target: "authorized", // If profile fetch fails, still go to authorized with existing session
+                        actions: [
+                            (0, xstate_1.assign)({
+                                session: ({ context }) => {
+                                    // Use the session from the context if profile fetch fails
+                                    return context.session || null;
+                                },
+                            }),
+                        ],
+                    },
+                },
+            },
             unauthorized: {
                 initial: "login",
+                on: {
+                    COMPLETE_REGISTRATION: ".completeRegistrationProcess", // Handle complete registration from unauthorized state
+                },
                 states: {
                     login: {
                         initial: "idle",
@@ -144,7 +305,10 @@ const createAuthMachine = (authRepository) => {
                                 },
                                 invoke: {
                                     src: "loginUser",
-                                    input: ({ event }) => event.payload,
+                                    input: ({ event }) => {
+                                        (0, xstate_1.assertEvent)(event, "LOGIN");
+                                        return event.payload;
+                                    },
                                     onDone: {
                                         target: "#auth.authorized",
                                         actions: ["setSession", "clearPendingCredentials"],
@@ -154,6 +318,54 @@ const createAuthMachine = (authRepository) => {
                                         actions: "setError",
                                     },
                                 },
+                            },
+                        },
+                    },
+                    completeRegistrationProcess: {
+                        invoke: {
+                            src: "completeRegistration",
+                            input: ({ event }) => {
+                                // Extract payload from COMPLETE_REGISTRATION event
+                                if (event.type === "COMPLETE_REGISTRATION") {
+                                    return event.payload;
+                                }
+                                return { actionToken: "", newPassword: "" };
+                            },
+                            onDone: {
+                                target: "loggingInAfterCompletion",
+                            },
+                            onError: {
+                                target: "login", // Return to login page
+                                actions: "setError",
+                            },
+                        },
+                    },
+                    loggingInAfterCompletion: {
+                        invoke: {
+                            src: "loginUser",
+                            input: ({ context }) => {
+                                // Get credentials from context if available
+                                if (context.pendingCredentials) {
+                                    return context.pendingCredentials;
+                                }
+                                // Missing or invalid credentials - return empty to be rejected by server
+                                return { email: "", password: "" };
+                            },
+                            onDone: {
+                                target: "#auth.authorized",
+                                actions: [
+                                    "setSession",
+                                    "clearRegistrationContext",
+                                    "clearPendingCredentials",
+                                ],
+                            },
+                            onError: {
+                                target: "login",
+                                actions: [
+                                    "setError",
+                                    "clearRegistrationContext",
+                                    "clearPendingCredentials",
+                                ],
                             },
                         },
                     },
@@ -187,7 +399,10 @@ const createAuthMachine = (authRepository) => {
                                 },
                                 invoke: {
                                     src: "registerUser",
-                                    input: ({ event }) => event.payload,
+                                    input: ({ event }) => {
+                                        (0, xstate_1.assertEvent)(event, "REGISTER");
+                                        return event.payload;
+                                    },
                                     onDone: "verifyOtp",
                                     onError: {
                                         target: "form",
@@ -210,10 +425,13 @@ const createAuthMachine = (authRepository) => {
                             verifyingOtp: {
                                 invoke: {
                                     src: "verifyOtp",
-                                    input: ({ context, event }) => ({
-                                        email: context.email ?? "",
-                                        otp: event.payload.otp,
-                                    }),
+                                    input: ({ context, event }) => {
+                                        (0, xstate_1.assertEvent)(event, "VERIFY_OTP");
+                                        return {
+                                            email: context.email ?? "",
+                                            otp: event.payload.otp,
+                                        };
+                                    },
                                     onDone: {
                                         target: "completingRegistration",
                                         actions: "setRegistrationActionToken",
@@ -229,7 +447,7 @@ const createAuthMachine = (authRepository) => {
                                     src: "completeRegistration",
                                     input: ({ context }) => ({
                                         actionToken: context.registrationActionToken ?? "",
-                                        newPassword: (0, exports.resolveRegistrationPassword)(context.pendingCredentials),
+                                        newPassword: (0, safetyUtils_1.resolveRegistrationPassword)(context.pendingCredentials),
                                     }),
                                     onDone: "loggingIn",
                                     onError: {
@@ -241,7 +459,16 @@ const createAuthMachine = (authRepository) => {
                             loggingIn: {
                                 invoke: {
                                     src: "loginUser",
-                                    input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
+                                    input: ({ context }) => {
+                                        // SAFETY: Only use valid credentials, otherwise let API reject
+                                        // This prevents sending empty credentials that would be rejected
+                                        if ((0, safetyUtils_1.hasValidCredentials)(context.pendingCredentials)) {
+                                            return context.pendingCredentials;
+                                        }
+                                        // Missing or invalid credentials - return empty to be rejected by server
+                                        // with a proper error message rather than sending invalid data
+                                        return { email: "", password: "" };
+                                    },
                                     onDone: {
                                         target: "#auth.authorized",
                                         actions: [
@@ -285,7 +512,10 @@ const createAuthMachine = (authRepository) => {
                                 },
                                 invoke: {
                                     src: "requestPasswordReset",
-                                    input: ({ event }) => event.payload,
+                                    input: ({ event }) => {
+                                        (0, xstate_1.assertEvent)(event, "FORGOT_PASSWORD");
+                                        return event.payload;
+                                    },
                                     onDone: "verifyOtp",
                                     onError: {
                                         target: "idle",
@@ -308,10 +538,13 @@ const createAuthMachine = (authRepository) => {
                             verifyingOtp: {
                                 invoke: {
                                     src: "verifyOtp",
-                                    input: ({ context, event }) => ({
-                                        email: context.email ?? "",
-                                        otp: event.payload.otp,
-                                    }),
+                                    input: ({ context, event }) => {
+                                        (0, xstate_1.assertEvent)(event, "VERIFY_OTP");
+                                        return {
+                                            email: context.email ?? "",
+                                            otp: event.payload.otp,
+                                        };
+                                    },
                                     onDone: {
                                         target: "resetPassword",
                                         actions: "setResetActionToken",
@@ -348,7 +581,16 @@ const createAuthMachine = (authRepository) => {
                             loggingInAfterReset: {
                                 invoke: {
                                     src: "loginUser",
-                                    input: ({ context }) => context.pendingCredentials ?? { email: "", password: "" },
+                                    input: ({ context }) => {
+                                        // SAFETY: Only use valid credentials, otherwise let API reject
+                                        // This prevents sending empty credentials that would be rejected
+                                        if ((0, safetyUtils_1.hasValidCredentials)(context.pendingCredentials)) {
+                                            return context.pendingCredentials;
+                                        }
+                                        // Missing or invalid credentials - return empty to be rejected by server
+                                        // with a proper error message rather than sending invalid data
+                                        return { email: "", password: "" };
+                                    },
                                     onDone: {
                                         target: "#auth.authorized",
                                         actions: [
@@ -376,6 +618,15 @@ const createAuthMachine = (authRepository) => {
                     LOGOUT: {
                         target: "loggingOut",
                     },
+                    REFRESH: {
+                        target: "refreshingToken",
+                    },
+                    COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess",
+                },
+                invoke: {
+                    // Periodically check if the token needs a refresh
+                    src: "validateAndRefreshSessionIfNeeded",
+                    input: ({ context }) => ({ session: context.session ?? undefined }),
                 },
             },
             loggingOut: {

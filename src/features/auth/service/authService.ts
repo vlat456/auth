@@ -3,10 +3,9 @@
  * Authentication service that manages the auth machine instance
  */
 
-import { interpret, ActorRefFrom } from 'xstate';
+import { interpret, ActorRefFrom, SnapshotFrom } from 'xstate';
 import { createAuthMachine } from '../machine/authMachine';
 import { IAuthRepository } from '../types';
-
 import { AuthContext, AuthEvent } from '../machine/authMachine';
 
 // Define the auth service class that will manage the machine
@@ -16,17 +15,18 @@ export class AuthService {
 
   constructor(repository: IAuthRepository) {
     this.repository = repository;
-    this.authService = interpret(createAuthMachine(this.repository));
+    const machine = createAuthMachine(this.repository);
+    this.authService = interpret(machine);
     this.authService.start(); // Start the service
   }
 
   // Get the current state of the authentication machine
-  getSnapshot() {
+  getSnapshot(): SnapshotFrom<ReturnType<typeof createAuthMachine>> {
     return this.authService.getSnapshot();
   }
 
   // Subscribe to state changes
-  subscribe(callback: (state: any) => void) {
+  subscribe(callback: (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => void) {
     return this.authService.subscribe(callback);
   }
 

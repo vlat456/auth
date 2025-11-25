@@ -133,6 +133,8 @@ export class AuthRepository implements IAuthRepository {
 
   /**
    * Refreshes the access token using a refresh token.
+   * NOTE: This method only refreshes the token, without fetching updated user profile.
+   * Profile updates should be handled separately by the calling component/state machine.
    */
   refresh = withErrorHandling(
     async (refreshToken: string): Promise<AuthSession> => {
@@ -154,35 +156,12 @@ export class AuthRepository implements IAuthRepository {
         throw new Error("No current session found during refresh");
       }
 
-      // Fetch fresh profile data using the new access token
-      let freshProfile: UserProfile | undefined;
-      try {
-        const profileResponse = await this.apiClient.get<UserProfile>(
-          "/auth/me",
-          {
-            headers: { Authorization: `Bearer ${newAccessToken}` },
-          },
-        );
-
-        const userData = profileResponse.data;
-        if (this.isUserProfile(userData)) {
-          freshProfile = userData;
-        }
-      } catch (profileError: unknown) {
-        // Log profile fetch error but don't fail the refresh
-        console.warn(
-          "Profile refresh failed during token refresh:",
-          profileError,
-        );
-        // Keep the existing profile as fallback if available
-        freshProfile = currentSession.profile;
-      }
-
-      // Create new session with fresh access token, keep refresh token, and use fresh/fallback profile
+      // Create new session with fresh access token, keep refresh token, and preserve profile
+      // Profile updates should be handled separately by the calling component/state machine
       const refreshedSession: AuthSession = {
         accessToken: newAccessToken,
         refreshToken: currentSession.refreshToken,
-        profile: freshProfile,
+        profile: currentSession.profile, // Preserve the existing profile
       };
 
       await this.saveSession(refreshedSession);

@@ -3,7 +3,6 @@
  * Version: 0.2.0
  */
 import { AuthSession, AuthError, LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, IAuthRepository } from "../types";
-export declare const resolveRegistrationPassword: (pending?: LoginRequestDTO) => string;
 export type AuthContext = {
     session: AuthSession | null;
     error: AuthError | null;
@@ -34,6 +33,11 @@ export type AuthEvent = {
         newPassword: string;
     };
 } | {
+    type: "COMPLETE_REGISTRATION";
+    payload: CompleteRegistrationDTO;
+} | {
+    type: "REFRESH";
+} | {
     type: "LOGOUT";
 } | {
     type: "CANCEL";
@@ -43,6 +47,13 @@ export type AuthEvent = {
     type: "GO_TO_LOGIN";
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
+};
+export type EventWithSystem = AuthEvent | {
+    type: `xstate.done.actor.${string}`;
+    output: any;
+} | {
+    type: `xstate.error.actor.${string}`;
+    error: any;
 };
 export declare const createAuthMachine: (authRepository: IAuthRepository) => import("xstate").StateMachine<AuthContext, {
     type: "CHECK_SESSION";
@@ -66,6 +77,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
         newPassword: string;
     };
 } | {
+    type: "COMPLETE_REGISTRATION";
+    payload: CompleteRegistrationDTO;
+} | {
+    type: "REFRESH";
+} | {
     type: "LOGOUT";
 } | {
     type: "CANCEL";
@@ -75,12 +91,38 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     type: "GO_TO_LOGIN";
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
+} | {
+    type: `xstate.done.actor.${string}`;
+    output: any;
+} | {
+    type: `xstate.error.actor.${string}`;
+    error: any;
 }, {
-    [x: string]: import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | undefined;
+    [x: string]: import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, {
+        refreshToken: string;
+    }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
+        session?: AuthSession;
+    }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
+        session: AuthSession;
+    }, import("xstate").EventObject>> | undefined;
 }, import("xstate").Values<{
-    checkSessionParams: {
-        src: "checkSessionParams";
+    refreshToken: {
+        src: "refreshToken";
+        logic: import("xstate").PromiseActorLogic<AuthSession, {
+            refreshToken: string;
+        }, import("xstate").EventObject>;
+        id: string | undefined;
+    };
+    checkSession: {
+        src: "checkSession";
         logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+        id: string | undefined;
+    };
+    validateAndRefreshSessionIfNeeded: {
+        src: "validateAndRefreshSessionIfNeeded";
+        logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+            session?: AuthSession;
+        }, import("xstate").EventObject>;
         id: string | undefined;
     };
     loginUser: {
@@ -116,6 +158,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     logoutUser: {
         src: "logoutUser";
         logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+        id: string | undefined;
+    };
+    validateSessionWithServer: {
+        src: "validateSessionWithServer";
+        logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+            session: AuthSession;
+        }, import("xstate").EventObject>;
         id: string | undefined;
     };
 }>, import("xstate").Values<{
@@ -167,8 +216,8 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
         type: "setPendingCredentialsFromNewPassword";
         params: import("xstate").NonReducibleUnknown;
     };
-}>, never, never, "checkingSession" | "authorized" | "loggingOut" | {
-    unauthorized: {
+}>, never, never, "checkingSession" | "validatingSession" | "fetchingProfileAfterValidation" | "refreshingToken" | "authorized" | "fetchingProfileAfterRefresh" | "loggingOut" | {
+    unauthorized: "completeRegistrationProcess" | "loggingInAfterCompletion" | {
         login: "idle" | "submitting";
     } | {
         register: "verifyOtp" | "submitting" | "form" | "verifyingOtp" | "completingRegistration" | "loggingIn";
@@ -182,11 +231,115 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     readonly states: {
         readonly checkingSession: {
             readonly invoke: {
-                readonly src: "checkSessionParams";
+                readonly src: "checkSession";
                 readonly onDone: readonly [{
                     readonly guard: ({ event }: import("xstate/dist/declarations/src/guards").GuardArgs<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>>) => boolean;
-                    readonly target: "authorized";
-                    readonly actions: "setSession";
+                    readonly target: "validatingSession";
+                    readonly actions: import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>;
                 }, {
                     readonly target: "unauthorized";
                 }];
@@ -195,8 +348,1224 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                 };
             };
         };
+        readonly validatingSession: {
+            readonly on: {
+                readonly COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess";
+            };
+            readonly invoke: {
+                readonly src: "validateSessionWithServer";
+                readonly input: ({ context }: {
+                    context: AuthContext;
+                    event: {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    };
+                    self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, import("xstate").AnyEventObject>;
+                }) => {
+                    session: AuthSession;
+                };
+                readonly onDone: {
+                    readonly target: "fetchingProfileAfterValidation";
+                };
+                readonly onError: {
+                    readonly target: "refreshingToken";
+                };
+            };
+        };
+        readonly fetchingProfileAfterValidation: {
+            readonly invoke: {
+                readonly src: "validateSessionWithServer";
+                readonly input: ({ context }: {
+                    context: AuthContext;
+                    event: {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    };
+                    self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, import("xstate").AnyEventObject>;
+                }) => {
+                    session: AuthSession;
+                };
+                readonly onDone: {
+                    readonly target: "authorized";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+                readonly onError: {
+                    readonly target: "authorized";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+            };
+        };
+        readonly refreshingToken: {
+            readonly on: {
+                readonly COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess";
+            };
+            readonly invoke: {
+                readonly id: "refresh-token";
+                readonly src: "refreshToken";
+                readonly input: ({ context }: {
+                    context: AuthContext;
+                    event: {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    };
+                    self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, import("xstate").AnyEventObject>;
+                }) => {
+                    refreshToken: string;
+                };
+                readonly onDone: {
+                    readonly target: "fetchingProfileAfterRefresh";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+                readonly onError: {
+                    readonly target: "unauthorized";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+            };
+        };
+        readonly fetchingProfileAfterRefresh: {
+            readonly invoke: {
+                readonly src: "validateSessionWithServer";
+                readonly input: ({ context }: {
+                    context: AuthContext;
+                    event: {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    };
+                    self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, import("xstate").AnyEventObject>;
+                }) => {
+                    session: AuthSession;
+                };
+                readonly onDone: {
+                    readonly target: "authorized";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+                readonly onError: {
+                    readonly target: "authorized";
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, undefined, import("xstate").Values<{
+                        refreshToken: {
+                            src: "refreshToken";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, {
+                                refreshToken: string;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        checkSession: {
+                            src: "checkSession";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateAndRefreshSessionIfNeeded: {
+                            src: "validateAndRefreshSessionIfNeeded";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session?: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        loginUser: {
+                            src: "loginUser";
+                            logic: import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        registerUser: {
+                            src: "registerUser";
+                            logic: import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        requestPasswordReset: {
+                            src: "requestPasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completeRegistration: {
+                            src: "completeRegistration";
+                            logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        completePasswordReset: {
+                            src: "completePasswordReset";
+                            logic: import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        logoutUser: {
+                            src: "logoutUser";
+                            logic: import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                        validateSessionWithServer: {
+                            src: "validateSessionWithServer";
+                            logic: import("xstate").PromiseActorLogic<AuthSession | null, {
+                                session: AuthSession;
+                            }, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
+                    }>, never, never, never, never>];
+                };
+            };
+        };
         readonly unauthorized: {
             readonly initial: "login";
+            readonly on: {
+                readonly COMPLETE_REGISTRATION: ".completeRegistrationProcess";
+            };
             readonly states: {
                 readonly login: {
                     readonly initial: "idle";
@@ -243,6 +1612,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -252,6 +1626,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -275,6 +1655,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -284,6 +1669,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -306,6 +1697,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -315,8 +1711,14 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
-                                }) => any;
+                                }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
                                     readonly actions: readonly ["setSession", "clearPendingCredentials"];
@@ -326,6 +1728,293 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                     readonly actions: "setError";
                                 };
                             };
+                        };
+                    };
+                };
+                readonly completeRegistrationProcess: {
+                    readonly invoke: {
+                        readonly src: "completeRegistration";
+                        readonly input: ({ event }: {
+                            context: AuthContext;
+                            event: {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            };
+                            self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            }, import("xstate").AnyEventObject>;
+                        }) => CompleteRegistrationDTO;
+                        readonly onDone: {
+                            readonly target: "loggingInAfterCompletion";
+                        };
+                        readonly onError: {
+                            readonly target: "login";
+                            readonly actions: "setError";
+                        };
+                    };
+                };
+                readonly loggingInAfterCompletion: {
+                    readonly invoke: {
+                        readonly src: "loginUser";
+                        readonly input: ({ context }: {
+                            context: AuthContext;
+                            event: {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            };
+                            self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                type: "CHECK_SESSION";
+                            } | {
+                                type: "LOGIN";
+                                payload: LoginRequestDTO;
+                            } | {
+                                type: "REGISTER";
+                                payload: RegisterRequestDTO;
+                            } | {
+                                type: "FORGOT_PASSWORD";
+                                payload: RequestOtpDTO;
+                            } | {
+                                type: "VERIFY_OTP";
+                                payload: {
+                                    otp: string;
+                                };
+                            } | {
+                                type: "RESET_PASSWORD";
+                                payload: {
+                                    newPassword: string;
+                                };
+                            } | {
+                                type: "COMPLETE_REGISTRATION";
+                                payload: CompleteRegistrationDTO;
+                            } | {
+                                type: "REFRESH";
+                            } | {
+                                type: "LOGOUT";
+                            } | {
+                                type: "CANCEL";
+                            } | {
+                                type: "GO_TO_REGISTER";
+                            } | {
+                                type: "GO_TO_LOGIN";
+                            } | {
+                                type: "GO_TO_FORGOT_PASSWORD";
+                            } | {
+                                type: `xstate.done.actor.${string}`;
+                                output: any;
+                            } | {
+                                type: `xstate.error.actor.${string}`;
+                                error: any;
+                            }, import("xstate").AnyEventObject>;
+                        }) => LoginRequestDTO;
+                        readonly onDone: {
+                            readonly target: "#auth.authorized";
+                            readonly actions: readonly ["setSession", "clearRegistrationContext", "clearPendingCredentials"];
+                        };
+                        readonly onError: {
+                            readonly target: "login";
+                            readonly actions: readonly ["setError", "clearRegistrationContext", "clearPendingCredentials"];
                         };
                     };
                 };
@@ -379,6 +2068,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -388,6 +2082,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -411,6 +2111,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -420,6 +2125,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -442,6 +2153,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -451,8 +2167,14 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
-                                }) => any;
+                                }) => RegisterRequestDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
                                     readonly target: "form";
@@ -504,6 +2226,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -513,6 +2240,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -536,6 +2269,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -545,6 +2283,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -567,6 +2311,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -576,10 +2325,16 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
-                                    otp: any;
+                                    otp: string;
                                 };
                                 readonly onDone: {
                                     readonly target: "completingRegistration";
@@ -618,6 +2373,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -627,6 +2387,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -650,6 +2416,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -659,6 +2430,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -681,6 +2458,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -690,6 +2472,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
@@ -729,6 +2517,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -738,6 +2531,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -761,6 +2560,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -770,6 +2574,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -792,6 +2602,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -801,6 +2616,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
@@ -862,6 +2683,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -871,6 +2697,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -894,6 +2726,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -903,6 +2740,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -925,6 +2768,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -934,8 +2782,14 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
-                                }) => any;
+                                }) => RequestOtpDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
                                     readonly target: "idle";
@@ -987,6 +2841,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -996,6 +2855,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -1019,6 +2884,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1028,6 +2898,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1050,6 +2926,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1059,10 +2940,16 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
-                                    otp: any;
+                                    otp: string;
                                 };
                                 readonly onDone: {
                                     readonly target: "resetPassword";
@@ -1115,6 +3002,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1124,6 +3016,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -1147,6 +3045,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1156,6 +3059,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1178,6 +3087,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1187,6 +3101,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
@@ -1226,6 +3146,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1235,6 +3160,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
@@ -1258,6 +3189,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1267,6 +3203,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1289,6 +3231,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                             newPassword: string;
                                         };
                                     } | {
+                                        type: "COMPLETE_REGISTRATION";
+                                        payload: CompleteRegistrationDTO;
+                                    } | {
+                                        type: "REFRESH";
+                                    } | {
                                         type: "LOGOUT";
                                     } | {
                                         type: "CANCEL";
@@ -1298,6 +3245,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
+                                    } | {
+                                        type: `xstate.done.actor.${string}`;
+                                        output: any;
+                                    } | {
+                                        type: `xstate.error.actor.${string}`;
+                                        error: any;
                                     }, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
@@ -1318,6 +3271,146 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
             readonly on: {
                 readonly LOGOUT: {
                     readonly target: "loggingOut";
+                };
+                readonly REFRESH: {
+                    readonly target: "refreshingToken";
+                };
+                readonly COMPLETE_REGISTRATION: "#auth.unauthorized.completeRegistrationProcess";
+            };
+            readonly invoke: {
+                readonly src: "validateAndRefreshSessionIfNeeded";
+                readonly input: ({ context }: {
+                    context: AuthContext;
+                    event: {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    };
+                    self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                        type: "CHECK_SESSION";
+                    } | {
+                        type: "LOGIN";
+                        payload: LoginRequestDTO;
+                    } | {
+                        type: "REGISTER";
+                        payload: RegisterRequestDTO;
+                    } | {
+                        type: "FORGOT_PASSWORD";
+                        payload: RequestOtpDTO;
+                    } | {
+                        type: "VERIFY_OTP";
+                        payload: {
+                            otp: string;
+                        };
+                    } | {
+                        type: "RESET_PASSWORD";
+                        payload: {
+                            newPassword: string;
+                        };
+                    } | {
+                        type: "COMPLETE_REGISTRATION";
+                        payload: CompleteRegistrationDTO;
+                    } | {
+                        type: "REFRESH";
+                    } | {
+                        type: "LOGOUT";
+                    } | {
+                        type: "CANCEL";
+                    } | {
+                        type: "GO_TO_REGISTER";
+                    } | {
+                        type: "GO_TO_LOGIN";
+                    } | {
+                        type: "GO_TO_FORGOT_PASSWORD";
+                    } | {
+                        type: `xstate.done.actor.${string}`;
+                        output: any;
+                    } | {
+                        type: `xstate.error.actor.${string}`;
+                        error: any;
+                    }, import("xstate").AnyEventObject>;
+                }) => {
+                    session: AuthSession | undefined;
                 };
             };
         };

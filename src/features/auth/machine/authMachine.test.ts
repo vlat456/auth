@@ -84,6 +84,7 @@ describe("Auth Machine", () => {
     it("should move to authorized if session exists", async () => {
       const mockSession = { accessToken: "validaccesstoken" };
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(mockSession);
+      (mockRepo.refreshProfile as jest.Mock).mockResolvedValue(mockSession);
       const actor = createTestActor();
       await waitForState(actor, (s) => s["matches"]("authorized"));
       expect(actor.getSnapshot().context.session).toEqual(mockSession);

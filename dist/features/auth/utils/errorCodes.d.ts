@@ -1,0 +1,37 @@
+/**
+ * Error codes dictionary for secure error handling
+ * Contains generic error messages to prevent information disclosure
+ */
+export declare enum AuthErrorCode {
+    GENERAL_ERROR = "AUTH_001",
+    NETWORK_ERROR = "AUTH_002",
+    INVALID_INPUT = "AUTH_003",
+    SESSION_EXPIRED = "AUTH_004",
+    TOKEN_INVALID = "AUTH_005",
+    LOGIN_FAILED = "AUTH_101",
+    REGISTRATION_FAILED = "AUTH_102",
+    USER_NOT_FOUND = "AUTH_103",
+    INVALID_CREDENTIALS = "AUTH_104",
+    ACCOUNT_LOCKED = "AUTH_105",
+    ACCOUNT_DISABLED = "AUTH_106",
+    UNAUTHORIZED_ACCESS = "AUTH_201",
+    INSUFFICIENT_PERMISSIONS = "AUTH_202",
+    INVALID_TOKEN = "AUTH_203",
+    TOKEN_EXPIRED = "AUTH_204",
+    OTP_INVALID = "AUTH_301",
+    OTP_EXPIRED = "AUTH_302",
+    OTP_RATE_LIMITED = "AUTH_303",
+    OTP_SEND_FAILED = "AUTH_304",
+    PASSWORD_RESET_FAILED = "AUTH_401",
+    PASSWORD_WEAK = "AUTH_402",
+    PASSWORD_MISMATCH = "AUTH_403",
+    PASSWORD_SAME_AS_OLD = "AUTH_404",
+    TOO_MANY_REQUESTS = "AUTH_501",
+    RATE_LIMIT_EXCEEDED = "AUTH_502",
+    VALIDATION_ERROR = "AUTH_601",
+    UNAUTHORIZED = "AUTH_602",
+    FORBIDDEN = "AUTH_603",
+    NOT_FOUND = "AUTH_604",
+    SERVER_ERROR = "AUTH_999"
+}
+export declare const ErrorMessages: Record<AuthErrorCode, string>;

@@ -1,7 +1,7 @@
 "use strict";
 /**
  * Path: src/features/auth/repositories/AuthRepository.ts
- * Version: 0.2.0
+ * A stateless API layer that only makes direct calls to the backend
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -10,7 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthRepository = void 0;
 const axios_1 = __importDefault(require("axios"));
 const errorHandler_1 = require("../utils/errorHandler");
-const safetyUtils_1 = require("../utils/safetyUtils");
+const validationSchemas_1 = require("../schemas/validationSchemas");
 const STORAGE_KEY = "user_session_token";
 const RETRY_CONFIG = {
     maxRetries: 3,
@@ -18,26 +18,20 @@ const RETRY_CONFIG = {
     retryableStatus: [500, 502, 503, 504],
 };
 class AuthRepository {
-    constructor(storage, baseURL = "https://api.astra.example.com") {
+    constructor(storage, baseURL) {
+        /**
+         * Authenticates a user by email and password.
+         */
         this.login = (0, errorHandler_1.withErrorHandling)(async (payload) => {
             const response = await this.apiClient.post("/auth/login", payload);
-            // Validate the response structure before accessing nested properties
-            const responseData = response.data;
-            if (!(0, safetyUtils_1.hasRequiredProperties)(responseData, ['data'])) {
-                throw new Error("Invalid login response: missing data property");
+            const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginResponseSchemaWrapper, response.data);
+            if (!validationResult.success) {
+                throw new Error(`Invalid login response: ${JSON.stringify(validationResult.errors)}`);
             }
-            const dataPayload = (0, safetyUtils_1.safeGetNestedValue)(responseData, 'data');
-            if (!(0, safetyUtils_1.hasRequiredProperties)(dataPayload, ['accessToken'])) {
-                throw new Error("Invalid login response: missing accessToken in data");
-            }
-            const accessToken = (0, safetyUtils_1.safeGetNestedValue)(dataPayload, 'accessToken');
-            const refreshToken = (0, safetyUtils_1.safeGetNestedValue)(dataPayload, 'refreshToken');
-            if (!accessToken || typeof accessToken !== 'string') {
-                throw new Error("Invalid login response: accessToken is not a valid string");
-            }
+            const validatedData = validationResult.data;
             const session = {
-                accessToken,
-                refreshToken, // refreshToken can be undefined
+                accessToken: validatedData.data.accessToken,
+                refreshToken: validatedData.data.refreshToken,
             };
             await this.saveSession(session);
             return session;
@@ -58,117 +52,76 @@ class AuthRepository {
         this.completePasswordReset = (0, errorHandler_1.withErrorHandling)(async (payload) => {
             await this.apiClient.post("/auth/password/reset/complete", payload);
         });
+        /**
+         * Refreshes the access token using a refresh token.
+         * NOTE: This method only refreshes the token, without fetching updated user profile.
+         * Profile updates should be handled separately by the calling component/state machine.
+         */
         this.refresh = (0, errorHandler_1.withErrorHandling)(async (refreshToken) => {
             const response = await this.apiClient.post("/auth/refresh-token", { refreshToken });
-            // Validate the response structure before accessing nested properties
-            const responseData = response.data;
-            if (!(0, safetyUtils_1.hasRequiredProperties)(responseData, ['data'])) {
-                throw new Error("Invalid refresh response: missing data property");
+            const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.RefreshResponseSchemaWrapper, response.data);
+            if (!validationResult.success) {
+                throw new Error(`Invalid refresh response: ${JSON.stringify(validationResult.errors)}`);
             }
-            const dataPayload = (0, safetyUtils_1.safeGetNestedValue)(responseData, 'data');
-            if (!(0, safetyUtils_1.hasRequiredProperties)(dataPayload, ['accessToken'])) {
-                throw new Error("Invalid refresh response: missing accessToken in data");
-            }
-            const newAccessToken = (0, safetyUtils_1.safeGetNestedValue)(dataPayload, 'accessToken');
-            if (!newAccessToken || typeof newAccessToken !== 'string') {
-                throw new Error("Invalid refresh response: accessToken is not a valid string");
-            }
+            const validatedData = validationResult.data;
+            const newAccessToken = validatedData.data.accessToken;
             // Get the current session to preserve other data
             const currentSession = await this.readSession();
             if (!currentSession) {
                 throw new Error("No current session found during refresh");
             }
-            // Create new session with fresh access token but keep existing refresh token and profile
+            // Create new session with fresh access token, keep refresh token, and preserve profile
+            // Profile updates should be handled separately by the calling component/state machine
             const refreshedSession = {
                 accessToken: newAccessToken,
-                refreshToken: currentSession.refreshToken, // Keep the existing refresh token
-                profile: currentSession.profile, // Keep the existing profile
+                refreshToken: currentSession.refreshToken,
+                profile: currentSession.profile, // Preserve the existing profile
             };
             await this.saveSession(refreshedSession);
             return refreshedSession;
         });
         this.storage = storage;
+        const finalBaseURL = baseURL || "https://api.astra.example.com";
         this.apiClient = axios_1.default.create({
-            baseURL,
+            baseURL: finalBaseURL,
             headers: { "Content-Type": "application/json" },
             timeout: 10000,
         });
         this.initializeInterceptors();
     }
+    /**
+     * Checks current session by reading from storage
+     * (state management is handled by the auth machine)
+     */
     async checkSession() {
-        // Step 1: Get the current session
+        return await this.readSession();
+    }
+    /**
+     * Refreshes the user profile data without requiring a token refresh.
+     */
+    async refreshProfile() {
         const session = await this.readSession();
         if (!session)
             return null;
-        // Step 2: Handle expired access token with refresh
-        if (this.isTokenExpired(session.accessToken)) {
-            return await this.handleExpiredSession(session);
-        }
-        // Step 3: Validate session with server
-        return await this.validateSessionWithServer(session);
-    }
-    async handleExpiredSession(session) {
-        if (!session.refreshToken) {
-            // No refresh token, so clear session and return null
-            await this.logout();
-            return null;
-        }
-        try {
-            // Attempt to refresh the session using the refresh token
-            return await this.refresh(session.refreshToken);
-        }
-        catch (refreshError) {
-            // If refresh fails, logout and return null
-            console.error('Token refresh failed:', refreshError);
-            await this.logout();
-            return null;
-        }
-    }
-    async validateSessionWithServer(session) {
         try {
             const response = await this.apiClient.get("/auth/me", {
                 headers: { Authorization: `Bearer ${session.accessToken}` },
             });
-            // Validate the response data before using it
             const userData = response.data;
-            if (!(0, safetyUtils_1.isUserProfile)(userData)) {
-                console.error("Invalid user profile received from server");
+            if (!this.isUserProfile(userData)) {
                 return null;
             }
-            const enrichedSession = { ...session, profile: userData };
-            await this.saveSession(enrichedSession);
-            return enrichedSession;
+            // Update session with fresh profile
+            const updatedSession = {
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken,
+                profile: userData,
+            };
+            await this.saveSession(updatedSession);
+            return updatedSession;
         }
-        catch (error) {
-            if (axios_1.default.isAxiosError(error)) {
-                const response = error.response;
-                if (response?.status === 401) {
-                    // Server rejected the token, try to refresh
-                    return await this.handle401Error();
-                }
-            }
-            // For other errors, return null without logging out
-            return null;
-        }
-    }
-    async handle401Error() {
-        const session = await this.readSession();
-        if (!session?.refreshToken) {
-            // No session or no refresh token, just return null
-            // Don't logout if there was no session to begin with
-            if (session) {
-                await this.logout();
-            }
-            return null;
-        }
-        try {
-            // Attempt to refresh using the available refresh token
-            return await this.refresh(session.refreshToken);
-        }
-        catch (refreshError) {
-            // If refresh fails, logout and return null
-            console.error('Token refresh after 401 failed:', refreshError);
-            await this.logout();
+        catch {
+            // Return null on profile fetch failure
             return null;
         }
     }
@@ -177,6 +130,8 @@ class AuthRepository {
     }
     // --- Internals ---
     async saveSession(session) {
+        // Clear any previous session data to ensure session regeneration
+        await this.storage.removeItem(STORAGE_KEY);
         await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
     }
     async readSession() {
@@ -198,64 +153,31 @@ class AuthRepository {
         return null;
     }
     processParsedSession(parsed) {
-        // Use hasRequiredProperties to validate the parsed object
-        if ((0, safetyUtils_1.hasRequiredProperties)(parsed, ['accessToken'])) {
-            // Now that we know it has accessToken, we can safely cast
-            const parsedToken = parsed;
-            return {
-                accessToken: parsedToken.accessToken,
-                refreshToken: this.extractRefreshToken(parsedToken),
-                profile: this.extractProfile(parsedToken),
-            };
+        // Use Zod to validate the parsed session object
+        const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.AuthSessionSchema, parsed);
+        if (validationResult.success) {
+            return validationResult.data;
+        }
+        // For backward compatibility with old stored data that might have empty tokens,
+        // we'll try a more permissive validation but only for the case where access token exists
+        if (typeof parsed === 'object' && parsed !== null) {
+            const parsedObj = parsed;
+            if ('accessToken' in parsedObj && typeof parsedObj.accessToken === 'string') {
+                // Return a session with just the access token, setting others to undefined if missing
+                return {
+                    accessToken: parsedObj.accessToken,
+                    refreshToken: typeof parsedObj.refreshToken === 'string' ? parsedObj.refreshToken : undefined,
+                    profile: this.isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
+                };
+            }
         }
         return null;
     }
-    extractRefreshToken(parsedToken) {
-        if (typeof parsedToken.refreshToken === "string") {
-            return parsedToken.refreshToken;
-        }
-        return undefined;
-    }
-    extractProfile(parsedToken) {
-        if (parsedToken.profile && (0, safetyUtils_1.isUserProfile)(parsedToken.profile)) {
-            return parsedToken.profile;
-        }
-        return undefined;
-    }
-    /**
-     * Decodes JWT locally to check 'exp' claim.
-     * Returns true if expired or invalid format.
-     */
-    isTokenExpired(token) {
-        try {
-            const parts = token.split(".");
-            if (parts.length !== 3)
-                return true; // Not a JWT
-            // Decode payload (2nd part)
-            const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-            let jsonString;
-            if (typeof atob === "function") {
-                // Browser / RN / Modern Node
-                jsonString = atob(payloadBase64);
-            }
-            else if (typeof Buffer !== "undefined") {
-                // Older Node environments (just in case)
-                jsonString = Buffer.from(payloadBase64, "base64").toString();
-            }
-            else {
-                // Fallback: assume not expired if we can't decode (safe fail-open to server)
-                return false;
-            }
-            const payload = JSON.parse(jsonString);
-            if (!payload.exp)
-                return false; // No expiration field, let server decide
-            // exp is in seconds, Date.now() is in ms
-            const currentTime = Math.floor(Date.now() / 1000);
-            return payload.exp < currentTime;
-        }
-        catch {
-            return true; // Malformed token
-        }
+    isUserProfile(data) {
+        if (!data || typeof data !== 'object')
+            return false;
+        const profile = data;
+        return typeof profile.id === 'string' && typeof profile.email === 'string';
     }
     initializeInterceptors() {
         this.apiClient.interceptors.response.use((response) => response, async (error) => {
