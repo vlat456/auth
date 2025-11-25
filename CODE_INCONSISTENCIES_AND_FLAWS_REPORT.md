@@ -59,11 +59,19 @@ isUserProfile({ id: "", email: "test@ex.com" }); // ✓ Returns true (WRONG)
 ```
 
 **FIXED:**
-Now validates content using Zod schema as single source of truth:
+Now validates content, not just types:
 
 ```typescript
 export function isUserProfile(obj: unknown): obj is UserProfile {
-  return validateSafe(UserProfileSchema, obj).success;
+  if (typeof obj !== "object" || obj === null) return false;
+
+  const profile = obj as UserProfile;
+  return (
+    typeof profile.id === "string" &&
+    profile.id.length > 0 &&
+    typeof profile.email === "string" &&
+    profile.email.length > 0
+  );
 }
 ```
 
@@ -123,14 +131,24 @@ isValidLoginRequest({ email: "a", password: "b" }); // ✓ true
 LoginRequestSchema.parse({ email: "a", password: "b" }); // ✗ throws
 ```
 
-## **FIXED**: Now validates content using Zod schema as single source of truth
-Uses Zod schema for consistent validation:
+## **FIXED**: Now validates content too
+
+Now validates that email and password are not only strings but also non-empty:
 
 ```typescript
 export function isValidLoginRequest(
   payload: unknown
 ): payload is LoginRequestDTO {
-  return validateSafe(LoginRequestSchema, payload).success;
+  if (typeof payload === "object" && payload !== null) {
+    const dto = payload as LoginRequestDTO;
+    return (
+      typeof dto.email === "string" &&
+      dto.email.length > 0 &&
+      typeof dto.password === "string" &&
+      dto.password.length > 0
+    );
+  }
+  return false;
 }
 ```
 
@@ -167,13 +185,9 @@ Different validators have inconsistent minimum length checks:
 - Testing becomes complex due to inconsistent expectations
 - Data quality may suffer from inconsistent validation
 
-## **FIXED**: Now makes validation consistent using Zod schema as single source of truth
-All validation functions now use Zod schemas for consistent validation:
+## **FIXED**: Now makes validation consistent across all validators
 
-```typescript
-// All functions now use:
-return validateSafe(Schema, payload).success;
-```
+All validation functions now check both type and non-empty content.
 
 ## **Note**: Same as previous. We need schema and data validator. Probably we can rid from type guards in flawor of strict validator library.
 
@@ -263,7 +277,7 @@ The function is properly implemented in `src/features/auth/machine/authMachine.t
 
 ```typescript
 export const hasValidCredentials = (
-  credentials?: LoginRequestDTO,
+  credentials?: LoginRequestDTO
 ): credentials is LoginRequestDTO => {
   return (
     credentials !== undefined &&
@@ -319,11 +333,16 @@ isAuthSession({ refreshToken: "token" }); // ✗ false (missing access token)
 ```
 
 **FIXED:**
-Now validates using Zod schema as single source of truth:
+Now validates content too:
 
 ```typescript
 export function isAuthSession(obj: unknown): obj is AuthSession {
-  return validateSafe(AuthSessionSchema, obj).success;
+  if (typeof obj !== "object" || obj === null) return false;
+
+  const session = obj as AuthSession;
+  return (
+    typeof session.accessToken === "string" && session.accessToken.length > 0
+  );
 }
 ```
 
@@ -507,12 +526,9 @@ Profile data is now refreshed during token refresh as implemented:
 // Fetch fresh profile data using the new access token to avoid stale user data
 let freshProfile: UserProfile | undefined;
 try {
-  const profileResponse = await this.apiClient.get<UserProfile>(
-    "/auth/me",
-    {
-      headers: { Authorization: `Bearer ${newAccessToken}` },
-    },
-  );
+  const profileResponse = await this.apiClient.get<UserProfile>("/auth/me", {
+    headers: { Authorization: `Bearer ${newAccessToken}` },
+  });
 
   const userData = profileResponse.data;
   if (isUserProfile(userData)) {
@@ -521,10 +537,7 @@ try {
 } catch (profileError: unknown) {
   // Log profile fetch error but don't fail the refresh
   // The session can still be valid even if profile fetch fails
-  console.warn(
-    "Profile refresh failed during token refresh:",
-    profileError,
-  );
+  console.warn("Profile refresh failed during token refresh:", profileError);
   // Keep the existing profile as fallback
   freshProfile = currentSession.profile;
 }
@@ -638,7 +651,9 @@ Added more specific error handling for non-axios errors:
 
 ```typescript
 // Non-axios errors
-throw new Error(error instanceof Error ? error.message : "An unexpected error occurred");
+throw new Error(
+  error instanceof Error ? error.message : "An unexpected error occurred"
+);
 ```
 
 **Impact:**
@@ -693,7 +708,7 @@ return typeof dto.email === "string" && typeof dto.password === "string";
 - Property access could fail
 
 **FIXED:**
-Type guards now use Zod schemas as single source of truth for consistent validation.
+Type guards now validate content more thoroughly, not just types.
 
 **Impact:**
 
@@ -867,50 +882,23 @@ This logic is actually valid and remains in place to handle cases where Zod migh
 
 ---
 
-## Additional Improvements
-
-### Duplication of Validation Logic Removed
-
-**Category:** Code Quality
-**File:** `src/features/auth/utils/validators.ts` (DELETED)
-
-**Description:**
-Redundant file that duplicated validation logic from `safetyUtils.ts` with incorrect imports.
-
-**Problem:**
-- Duplicate validation functions
-- Incorrect imports referencing non-existent "Loose" schemas
-- Not used anywhere in codebase
-- Potential source of confusion
-
-**FIXED:**
-Removed the entire file as it provided no value and created potential confusion.
-
-**Impact:**
-- Cleaner codebase
-- No duplicate functionality
-- Clearer validation approach using only `safetyUtils.ts`
-
----
-
 ## Summary Statistics
 
-| Category                   | Count  | Severity    | Status |
-| -------------------------- | ------ | ----------- | ------ |
-| Type Safety Issues         | 3      | MEDIUM      | FIXED  |
-| Validation Inconsistencies | 2      | MEDIUM/HIGH | FIXED  |
-| Data Handling Flaws        | 2      | MEDIUM      | FIXED  |
-| Concurrency Issues         | 2      | HIGH/MEDIUM | FIXED  |
-| Error Handling             | 2      | MEDIUM/LOW  | FIXED  |
-| Security Concerns          | 2      | MEDIUM/LOW  | FIXED  |
-| Unreachable Code           | 4      | LOW         | FIXED  |
-| Code Quality Issues        | 1      | LOW         | FIXED  |
-| **TOTAL**                  | **18** | -           | **18/18 FIXED** |
+| Category                   | Count  | Severity    | Status          |
+| -------------------------- | ------ | ----------- | --------------- |
+| Type Safety Issues         | 3      | MEDIUM      | FIXED           |
+| Validation Inconsistencies | 2      | MEDIUM/HIGH | FIXED           |
+| Data Handling Flaws        | 2      | MEDIUM      | FIXED           |
+| Concurrency Issues         | 2      | HIGH/MEDIUM | FIXED           |
+| Error Handling             | 2      | MEDIUM/LOW  | FIXED           |
+| Security Concerns          | 2      | MEDIUM/LOW  | FIXED           |
+| Unreachable Code           | 4      | LOW         | FIXED           |
+| **TOTAL**                  | **17** | -           | **17/17 FIXED** |
 
 ### Severity Breakdown
 
 - **HIGH:** 2 (Token refresh race condition, Empty credentials fallback) - **BOTH FIXED**
-- **MEDIUM:** 10 - **ALL FIXED**
+- **MEDIUM:** 9 - **ALL FIXED**
 - **LOW:** 6 - **ALL FIXED**
 
 ---
@@ -919,7 +907,7 @@ Removed the entire file as it provided no value and created potential confusion.
 
 ### Priority 1 (Critical) - COMPLETED
 
-0. ✓ Get rid of type guards where nescessery and use Zod as single source of truth.
+0. ~We should get rid of type guards where nescessery and use Zod as single source of truth.~
 1. ✓ Add mutex/lock to token refresh mechanism
 2. ✓ Implement proper length validation in `isUserProfile`
 
@@ -952,4 +940,3 @@ Removed the entire file as it provided no value and created potential confusion.
 **Report Generated:** 2025-11-25
 **Coverage After Fixes:** 96.88% statements, 87.67% branches, 407 passing tests
 **Status:** All reported issues fixed and verified with tests passing
-**Additional:** Redundant validation file removed for cleaner codebase

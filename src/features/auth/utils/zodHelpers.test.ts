@@ -327,6 +327,16 @@ describe("Zod Helpers", () => {
         expect(typeof error).toBe("string");
       }
     });
+
+    it("should return undefined when validation fails but errors object is empty", () => {
+      // Simulate an edge case where validation result has success: false but errors: {}
+      const emptyErrorsResult = {
+        success: false as const,
+        errors: {},
+      };
+      const error = getFirstValidationError(emptyErrorsResult);
+      expect(error).toBeUndefined();
+    });
   });
 
   describe("validateBatch", () => {

@@ -18,12 +18,21 @@ const mockStorage: IStorage = {
 
 // Helpers to generate test JWTs
 const createMockJwt = (expInSeconds?: number) => {
-  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  // JWT requires base64url encoding (not regular base64)
+  const base64url = (str: string) =>
+    btoa(str)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+  const header = base64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payloadObj = expInSeconds
     ? { exp: expInSeconds, sub: "123" }
     : { sub: "123" };
-  const payload = btoa(JSON.stringify(payloadObj));
-  return `${header}.${payload}.signature`;
+  const payload = base64url(JSON.stringify(payloadObj));
+  // Use a proper base64url encoded dummy signature to make it a valid JWT format
+  const signature = base64url("dummy_signature_data");
+  return `${header}.${payload}.${signature}`;
 };
 
 describe("AuthRepository", () => {
