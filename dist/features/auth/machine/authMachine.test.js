@@ -177,7 +177,8 @@ describe("Auth Machine", () => {
             });
             await toVerifyOtp;
             // Simulate credentials being lost
-            actor.getSnapshot().context.pendingCredentials = undefined;
+            actor.getSnapshot().context.registration = actor.getSnapshot().context.registration || {};
+            actor.getSnapshot().context.registration.pendingCredentials = undefined;
             const backToLogin = waitForState(actor, (s) => s["matches"]({ unauthorized: "login" }) && s.context.error !== null);
             actor.send({ type: "VERIFY_OTP", payload: { otp: "654321" } });
             await backToLogin;

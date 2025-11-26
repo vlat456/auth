@@ -242,7 +242,10 @@ describe("Auth Machine", () => {
       await toVerifyOtp;
 
       // Simulate credentials being lost
-      (actor.getSnapshot().context as any).pendingCredentials = undefined;
+      (actor.getSnapshot().context as any).registration =
+        (actor.getSnapshot().context as any).registration || {};
+      (actor.getSnapshot().context as any).registration.pendingCredentials =
+        undefined;
 
       const backToLogin = waitForState(
         actor,
@@ -355,7 +358,10 @@ describe("Auth Machine", () => {
       await toVerify;
 
       // Simulate lost email context (guards should block transition)
-      (actor.getSnapshot().context as any).email = undefined;
+      const ctx = actor.getSnapshot().context as any;
+      if (ctx.registration) {
+        ctx.registration.email = undefined;
+      }
 
       actor.send({ type: "VERIFY_OTP", payload: { otp: "000000" } });
       await Promise.resolve();
@@ -384,7 +390,9 @@ describe("Auth Machine", () => {
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
       await toVerify;
 
-      (actor.getSnapshot().context as any).pendingCredentials = {
+      (actor.getSnapshot().context as any).registration =
+        (actor.getSnapshot().context as any).registration || {};
+      (actor.getSnapshot().context as any).registration.pendingCredentials = {
         email: "a",
         password: null,
       };
@@ -561,7 +569,10 @@ describe("Auth Machine", () => {
       });
       await toVerify;
 
-      (actor.getSnapshot().context as any).email = undefined;
+      const ctx2 = actor.getSnapshot().context as any;
+      if (ctx2.passwordReset) {
+        ctx2.passwordReset.email = undefined;
+      }
 
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await Promise.resolve();
@@ -597,7 +608,10 @@ describe("Auth Machine", () => {
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await toReset;
 
-      (actor.getSnapshot().context as any).resetActionToken = undefined;
+      const ctx3 = actor.getSnapshot().context as any;
+      if (ctx3.passwordReset) {
+        ctx3.passwordReset.actionToken = undefined;
+      }
 
       actor.send({
         type: "RESET_PASSWORD",

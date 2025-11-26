@@ -92,73 +92,128 @@ const createAuthMachine = (authRepository) => {
             clearSession: (0, xstate_1.assign)({
                 session: null,
             }),
-            setEmailFromPayload: (0, xstate_1.assign)({
-                email: ({ event }) => {
-                    // Use assertEvent to ensure event has expected type and payload
-                    (0, xstate_1.assertEvent)(event, ["REGISTER", "FORGOT_PASSWORD"]);
-                    return event.payload.email;
-                },
-            }),
-            clearForgotPasswordContext: (0, xstate_1.assign)({
-                email: undefined,
-                resetActionToken: undefined,
-                pendingCredentials: undefined,
-            }),
-            clearRegistrationContext: (0, xstate_1.assign)({
-                email: undefined,
-                registrationActionToken: undefined,
-                pendingCredentials: undefined,
-            }),
-            setPendingCredentials: (0, xstate_1.assign)({
-                pendingCredentials: ({ event }) => {
-                    // Use assertEvent to ensure event is a REGISTER event with payload
-                    (0, xstate_1.assertEvent)(event, "REGISTER");
+            /**
+             * Set email from REGISTER event and initialize registration flow context
+             * Isolated from password reset flow context
+             */
+            setRegistrationEmail: (0, xstate_1.assign)({
+                registration: ({ event }) => {
+                    const payload = event.payload || {};
                     return {
-                        email: event.payload.email,
-                        password: event.payload.password,
+                        email: payload.email ?? "",
+                        pendingCredentials: {
+                            email: payload.email ?? "",
+                            password: payload.password ?? "",
+                        },
                     };
                 },
             }),
-            clearPendingCredentials: (0, xstate_1.assign)({
-                pendingCredentials: undefined,
+            /**
+             * Set email from FORGOT_PASSWORD event and initialize password reset flow context
+             * Isolated from registration flow context
+             */
+            setPasswordResetEmail: (0, xstate_1.assign)({
+                passwordReset: ({ event }) => {
+                    const payload = event.payload || {};
+                    return {
+                        email: payload.email ?? "",
+                    };
+                },
             }),
+            /**
+             * Clear registration flow context completely
+             * Automatic cleanup when leaving registration flow
+             */
+            clearRegistrationContext: (0, xstate_1.assign)({
+                registration: undefined,
+            }),
+            /**
+             * Clear password reset flow context completely
+             * Automatic cleanup when leaving password reset flow
+             */
+            clearPasswordResetContext: (0, xstate_1.assign)({
+                passwordReset: undefined,
+            }),
+            /**
+             * Store registration action token in registration context only
+             */
             setRegistrationActionToken: (0, xstate_1.assign)({
-                registrationActionToken: ({ event }) => {
-                    // Use type guard to validate this is a done event from verifyOtp actor
+                registration: ({ context, event }) => {
+                    // Get token from done event
+                    let token;
                     if (event.type.includes("done.actor") &&
                         "output" in event) {
                         const output = event.output;
-                        return typeof output === "string" ? output : undefined;
+                        token = typeof output === "string" ? output : undefined;
                     }
-                    return undefined;
+                    // Merge with existing registration context
+                    return {
+                        ...context.registration,
+                        actionToken: token,
+                    };
                 },
             }),
-            setResetActionToken: (0, xstate_1.assign)({
-                resetActionToken: ({ event }) => {
-                    // Use type guard to validate this is a done event from verifyOtp actor (in forgot password flow too)
+            /**
+             * Store password reset action token in password reset context only
+             */
+            setPasswordResetActionToken: (0, xstate_1.assign)({
+                passwordReset: ({ context, event }) => {
+                    // Get token from done event
+                    let token;
                     if (event.type.includes("done.actor") &&
                         "output" in event) {
                         const output = event.output;
-                        return typeof output === "string" ? output : undefined;
+                        token = typeof output === "string" ? output : undefined;
                     }
-                    return undefined;
+                    // Merge with existing password reset context
+                    return {
+                        ...context.passwordReset,
+                        actionToken: token,
+                    };
                 },
             }),
-            setPendingCredentialsFromNewPassword: (0, xstate_1.assign)({
-                pendingCredentials: ({ context, event }) => {
-                    // Extract newPassword from RESET_PASSWORD event
+            /**
+             * Update pending credentials in registration flow when new password is set
+             */
+            setRegistrationPendingPassword: (0, xstate_1.assign)({
+                registration: ({ context, event }) => {
                     if (event.type === "RESET_PASSWORD" && "payload" in event) {
                         const payload = event.payload;
                         if (payload &&
                             typeof payload === "object" &&
                             "newPassword" in payload) {
                             return {
-                                email: context.email ?? "",
-                                password: payload.newPassword,
+                                ...context.registration,
+                                pendingCredentials: {
+                                    email: context.registration?.email ?? "",
+                                    password: payload.newPassword,
+                                },
                             };
                         }
                     }
-                    return undefined;
+                    return context.registration;
+                },
+            }),
+            /**
+             * Update pending credentials in password reset flow when new password is set
+             */
+            setPasswordResetPendingPassword: (0, xstate_1.assign)({
+                passwordReset: ({ context, event }) => {
+                    if (event.type === "RESET_PASSWORD" && "payload" in event) {
+                        const payload = event.payload;
+                        if (payload &&
+                            typeof payload === "object" &&
+                            "newPassword" in payload) {
+                            return {
+                                ...context.passwordReset,
+                                pendingCredentials: {
+                                    email: context.passwordReset?.email ?? "",
+                                    password: payload.newPassword,
+                                },
+                            };
+                        }
+                    }
+                    return context.passwordReset;
                 },
             }),
         },
@@ -313,7 +368,7 @@ const createAuthMachine = (authRepository) => {
                                     },
                                     onDone: {
                                         target: "#auth.authorized",
-                                        actions: ["setSession", "clearPendingCredentials"],
+                                        actions: ["setSession"],
                                     },
                                     onError: {
                                         target: "idle",
@@ -346,9 +401,9 @@ const createAuthMachine = (authRepository) => {
                         invoke: {
                             src: "loginUser",
                             input: ({ context }) => {
-                                // Get credentials from context if available
-                                if (context.pendingCredentials) {
-                                    return context.pendingCredentials;
+                                // Get credentials from registration context if available
+                                if (context.registration?.pendingCredentials) {
+                                    return context.registration.pendingCredentials;
                                 }
                                 // Missing or invalid credentials - return empty to be rejected by server
                                 return { email: "", password: "" };
@@ -358,7 +413,6 @@ const createAuthMachine = (authRepository) => {
                                 actions: [
                                     "setSession",
                                     "clearRegistrationContext",
-                                    "clearPendingCredentials",
                                 ],
                             },
                             onError: {
@@ -366,7 +420,6 @@ const createAuthMachine = (authRepository) => {
                                 actions: [
                                     "setError",
                                     "clearRegistrationContext",
-                                    "clearPendingCredentials",
                                 ],
                             },
                         },
@@ -386,8 +439,7 @@ const createAuthMachine = (authRepository) => {
                                         target: "submitting",
                                         actions: [
                                             "clearError",
-                                            "setPendingCredentials",
-                                            "setEmailFromPayload",
+                                            "setRegistrationEmail",
                                         ],
                                     },
                                 },
@@ -415,7 +467,7 @@ const createAuthMachine = (authRepository) => {
                             verifyOtp: {
                                 on: {
                                     VERIFY_OTP: {
-                                        guard: ({ context }) => !!context.email,
+                                        guard: ({ context }) => !!context.registration?.email,
                                         target: "verifyingOtp",
                                     },
                                     CANCEL: {
@@ -430,7 +482,7 @@ const createAuthMachine = (authRepository) => {
                                     input: ({ context, event }) => {
                                         (0, xstate_1.assertEvent)(event, "VERIFY_OTP");
                                         return {
-                                            email: context.email ?? "",
+                                            email: context.registration?.email ?? "",
                                             otp: event.payload.otp,
                                         };
                                     },
@@ -448,8 +500,8 @@ const createAuthMachine = (authRepository) => {
                                 invoke: {
                                     src: "completeRegistration",
                                     input: ({ context }) => ({
-                                        actionToken: context.registrationActionToken ?? "",
-                                        newPassword: (0, safetyUtils_1.resolveRegistrationPassword)(context.pendingCredentials),
+                                        actionToken: context.registration?.actionToken ?? "",
+                                        newPassword: (0, safetyUtils_1.resolveRegistrationPassword)(context.registration?.pendingCredentials),
                                     }),
                                     onDone: "loggingIn",
                                     onError: {
@@ -464,8 +516,8 @@ const createAuthMachine = (authRepository) => {
                                     input: ({ context }) => {
                                         // SAFETY: Only use valid credentials, otherwise let API reject
                                         // This prevents sending empty credentials that would be rejected
-                                        if ((0, safetyUtils_1.hasValidCredentials)(context.pendingCredentials)) {
-                                            return context.pendingCredentials;
+                                        if ((0, safetyUtils_1.hasValidCredentials)(context.registration?.pendingCredentials)) {
+                                            return context.registration.pendingCredentials;
                                         }
                                         // Missing or invalid credentials - return empty to be rejected by server
                                         // with a proper error message rather than sending invalid data
@@ -476,7 +528,6 @@ const createAuthMachine = (authRepository) => {
                                         actions: [
                                             "setSession",
                                             "clearRegistrationContext",
-                                            "clearPendingCredentials",
                                         ],
                                     },
                                     onError: {
@@ -484,7 +535,6 @@ const createAuthMachine = (authRepository) => {
                                         actions: [
                                             "setError",
                                             "clearRegistrationContext",
-                                            "clearPendingCredentials",
                                         ],
                                     },
                                 },
@@ -496,7 +546,7 @@ const createAuthMachine = (authRepository) => {
                         on: {
                             GO_TO_LOGIN: {
                                 target: "#auth.unauthorized.login",
-                                actions: ["clearForgotPasswordContext", "clearError"],
+                                actions: ["clearPasswordResetContext", "clearError"],
                             },
                         },
                         states: {
@@ -504,7 +554,7 @@ const createAuthMachine = (authRepository) => {
                                 on: {
                                     FORGOT_PASSWORD: {
                                         target: "submitting",
-                                        actions: ["setEmailFromPayload", "clearError"],
+                                        actions: ["setPasswordResetEmail", "clearError"],
                                     },
                                 },
                             },
@@ -528,12 +578,12 @@ const createAuthMachine = (authRepository) => {
                             verifyOtp: {
                                 on: {
                                     VERIFY_OTP: {
-                                        guard: ({ context }) => !!context.email,
+                                        guard: ({ context }) => !!context.passwordReset?.email,
                                         target: "verifyingOtp",
                                     },
                                     CANCEL: {
                                         target: "idle",
-                                        actions: "clearForgotPasswordContext",
+                                        actions: "clearPasswordResetContext",
                                     },
                                 },
                             },
@@ -543,13 +593,13 @@ const createAuthMachine = (authRepository) => {
                                     input: ({ context, event }) => {
                                         (0, xstate_1.assertEvent)(event, "VERIFY_OTP");
                                         return {
-                                            email: context.email ?? "",
+                                            email: context.passwordReset?.email ?? "",
                                             otp: event.payload.otp,
                                         };
                                     },
                                     onDone: {
                                         target: "resetPassword",
-                                        actions: "setResetActionToken",
+                                        actions: "setPasswordResetActionToken",
                                     },
                                     onError: {
                                         target: "verifyOtp",
@@ -560,9 +610,9 @@ const createAuthMachine = (authRepository) => {
                             resetPassword: {
                                 on: {
                                     RESET_PASSWORD: {
-                                        guard: ({ context }) => !!context.resetActionToken,
+                                        guard: ({ context }) => !!context.passwordReset?.actionToken,
                                         target: "resettingPassword",
-                                        actions: "setPendingCredentialsFromNewPassword",
+                                        actions: "setPasswordResetPendingPassword",
                                     },
                                 },
                             },
@@ -570,8 +620,8 @@ const createAuthMachine = (authRepository) => {
                                 invoke: {
                                     src: "completePasswordReset",
                                     input: ({ context }) => ({
-                                        actionToken: context.resetActionToken ?? "",
-                                        newPassword: context.pendingCredentials?.password ?? "",
+                                        actionToken: context.passwordReset?.actionToken ?? "",
+                                        newPassword: context.passwordReset?.pendingCredentials?.password ?? "",
                                     }),
                                     onDone: "loggingInAfterReset",
                                     onError: {
@@ -586,8 +636,8 @@ const createAuthMachine = (authRepository) => {
                                     input: ({ context }) => {
                                         // SAFETY: Only use valid credentials, otherwise let API reject
                                         // This prevents sending empty credentials that would be rejected
-                                        if ((0, safetyUtils_1.hasValidCredentials)(context.pendingCredentials)) {
-                                            return context.pendingCredentials;
+                                        if ((0, safetyUtils_1.hasValidCredentials)(context.passwordReset?.pendingCredentials)) {
+                                            return context.passwordReset.pendingCredentials;
                                         }
                                         // Missing or invalid credentials - return empty to be rejected by server
                                         // with a proper error message rather than sending invalid data
@@ -597,16 +647,14 @@ const createAuthMachine = (authRepository) => {
                                         target: "#auth.authorized",
                                         actions: [
                                             "setSession",
-                                            "clearForgotPasswordContext",
-                                            "clearPendingCredentials",
+                                            "clearPasswordResetContext",
                                         ],
                                     },
                                     onError: {
                                         target: "#auth.unauthorized.login",
                                         actions: [
                                             "setError",
-                                            "clearForgotPasswordContext",
-                                            "clearPendingCredentials",
+                                            "clearPasswordResetContext",
                                         ],
                                     },
                                 },

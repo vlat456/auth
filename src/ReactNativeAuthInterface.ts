@@ -17,7 +17,7 @@ import {
 } from "./features/auth/types";
 import { AuthService } from "./features/auth/service/authService";
 import { AuthRepository } from "./features/auth/repositories/AuthRepository";
-import { SnapshotFrom } from 'xstate';
+import { SnapshotFrom } from "xstate";
 import { createAuthMachine } from "./features/auth/machine/authMachine";
 
 export class ReactNativeAuthInterface {
@@ -38,21 +38,23 @@ export class ReactNativeAuthInterface {
     // We'll need to wait for the login result using a promise
     return new Promise((resolve, reject) => {
       // Subscribe to state changes to detect when login is complete
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('authorized')) {
-          const session = state.context.session;
-          if (session) {
-            resolve(session);
-            subscription.unsubscribe(); // Unsubscribe after successful login
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("authorized")) {
+            const session = state.context.session;
+            if (session) {
+              resolve(session);
+              subscription.unsubscribe(); // Unsubscribe after successful login
+            }
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe(); // Unsubscribe after error
           }
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe(); // Unsubscribe after error
         }
-      });
+      );
 
       // Send the login event
-      this.authService.send({ type: 'LOGIN', payload });
+      this.authService.send({ type: "LOGIN", payload });
     });
   }
 
@@ -61,18 +63,20 @@ export class ReactNativeAuthInterface {
    */
   async register(payload: RegisterRequestDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('authorized')) {
-          resolve();
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("authorized")) {
+            resolve();
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
       // Start registration process
-      this.authService.send({ type: 'REGISTER', payload });
+      this.authService.send({ type: "REGISTER", payload });
     });
   }
 
@@ -81,17 +85,21 @@ export class ReactNativeAuthInterface {
    */
   async requestPasswordReset(payload: RequestOtpDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches({ unauthorized: { forgotPassword: 'verifyOtp' } })) {
-          resolve();
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (
+            state.matches({ unauthorized: { forgotPassword: "verifyOtp" } })
+          ) {
+            resolve();
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
-      this.authService.send({ type: 'FORGOT_PASSWORD', payload });
+      this.authService.send({ type: "FORGOT_PASSWORD", payload });
     });
   }
 
@@ -103,20 +111,24 @@ export class ReactNativeAuthInterface {
     return new Promise((resolve, reject) => {
       // Note: We'll need to track the action token in the context or return it somehow
       // This requires updating the authMachine to store action tokens in context
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.context.registrationActionToken || state.context.resetActionToken) {
-          const token = state.context.registrationActionToken || state.context.resetActionToken;
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          // Check for action token in registration or password reset context
+          const registrationToken = state.context.registration?.actionToken;
+          const resetToken = state.context.passwordReset?.actionToken;
+          const token = registrationToken || resetToken;
+
           if (token) {
             resolve(token);
             subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
           }
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
         }
-      });
+      );
 
-      this.authService.send({ type: 'VERIFY_OTP', payload });
+      this.authService.send({ type: "VERIFY_OTP", payload });
     });
   }
 
@@ -124,20 +136,22 @@ export class ReactNativeAuthInterface {
    * Complete password reset
    */
   async completePasswordReset(
-    payload: CompletePasswordResetDTO,
+    payload: CompletePasswordResetDTO
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('authorized')) {
-          resolve();
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("authorized")) {
+            resolve();
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
-      this.authService.send({ type: 'RESET_PASSWORD', payload });
+      this.authService.send({ type: "RESET_PASSWORD", payload });
     });
   }
 
@@ -146,19 +160,21 @@ export class ReactNativeAuthInterface {
    */
   async completeRegistration(payload: CompleteRegistrationDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('authorized')) {
-          resolve();
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("authorized")) {
+            resolve();
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
       // Complete registration happens automatically after OTP verification in the registration flow
       // We'll send a custom event to handle this specific use case directly
-      this.authService.send({ type: 'COMPLETE_REGISTRATION', payload });
+      this.authService.send({ type: "COMPLETE_REGISTRATION", payload });
     });
   }
 
@@ -168,17 +184,22 @@ export class ReactNativeAuthInterface {
   async checkSession(): Promise<AuthSession | null> {
     // Wait for the checkingSession state to resolve
     return new Promise((resolve) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('checkingSession') && !state.hasTag('loading')) {
-          // When checking session is done, return the current session
-          resolve(state.context.session);
-          subscription.unsubscribe();
-        } else if (state.matches('authorized') || state.matches('unauthorized')) {
-          // If we reach a final auth state, return the session
-          resolve(state.context.session);
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("checkingSession") && !state.hasTag("loading")) {
+            // When checking session is done, return the current session
+            resolve(state.context.session);
+            subscription.unsubscribe();
+          } else if (
+            state.matches("authorized") ||
+            state.matches("unauthorized")
+          ) {
+            // If we reach a final auth state, return the session
+            resolve(state.context.session);
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
     });
   }
 
@@ -187,17 +208,19 @@ export class ReactNativeAuthInterface {
    */
   async logout(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('unauthorized')) {
-          resolve();
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("unauthorized")) {
+            resolve();
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
-      this.authService.send({ type: 'LOGOUT' });
+      this.authService.send({ type: "LOGOUT" });
     });
   }
 
@@ -206,18 +229,20 @@ export class ReactNativeAuthInterface {
    */
   async refresh(): Promise<AuthSession | null> {
     return new Promise((resolve, reject) => {
-      const subscription = this.authService.subscribe((state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
-        if (state.matches('authorized')) {
-          const session = state.context.session;
-          resolve(session);
-          subscription.unsubscribe();
-        } else if (state.context.error) {
-          reject(new Error(state.context.error.message));
-          subscription.unsubscribe();
+      const subscription = this.authService.subscribe(
+        (state: SnapshotFrom<ReturnType<typeof createAuthMachine>>) => {
+          if (state.matches("authorized")) {
+            const session = state.context.session;
+            resolve(session);
+            subscription.unsubscribe();
+          } else if (state.context.error) {
+            reject(new Error(state.context.error.message));
+            subscription.unsubscribe();
+          }
         }
-      });
+      );
 
-      this.authService.send({ type: 'REFRESH' });
+      this.authService.send({ type: "REFRESH" });
     });
   }
 

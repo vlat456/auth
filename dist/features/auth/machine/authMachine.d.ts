@@ -3,13 +3,43 @@
  * Version: 0.2.0
  */
 import { AuthSession, AuthError, LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, IAuthRepository } from "../types";
+/**
+ * Registration flow context - isolated to prevent state pollution
+ * Automatically cleared when entering other flows
+ */
+export type RegistrationFlowContext = {
+    email: string;
+    actionToken?: string;
+    pendingCredentials?: LoginRequestDTO;
+};
+/**
+ * Password reset flow context - isolated to prevent state pollution
+ * Automatically cleared when entering other flows
+ */
+export type PasswordResetFlowContext = {
+    email: string;
+    actionToken?: string;
+    pendingCredentials?: LoginRequestDTO;
+};
+/**
+ * Restructured context with clear ownership by flow type
+ * - session: Shared auth state
+ * - error: Shared error state
+ * - registration: Only valid during registration flow
+ * - passwordReset: Only valid during password reset flow
+ *
+ * Benefits of this structure:
+ * 1. Clear separation - each flow owns its data
+ * 2. Automatic cleanup - switching flows clears old data
+ * 3. Type safety - context.registration?.email prevents cross-flow contamination
+ * 4. No shared state pollution - email can't persist after logout
+ * 5. Easier debugging - clear data ownership semantics
+ */
 export type AuthContext = {
     session: AuthSession | null;
     error: AuthError | null;
-    email?: string;
-    registrationActionToken?: string;
-    resetActionToken?: string;
-    pendingCredentials?: LoginRequestDTO;
+    registration?: RegistrationFlowContext;
+    passwordReset?: PasswordResetFlowContext;
 };
 export type AuthEvent = {
     type: "CHECK_SESSION";
@@ -183,36 +213,36 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
         type: "clearSession";
         params: import("xstate").NonReducibleUnknown;
     };
-    setEmailFromPayload: {
-        type: "setEmailFromPayload";
+    setRegistrationEmail: {
+        type: "setRegistrationEmail";
         params: import("xstate").NonReducibleUnknown;
     };
-    clearForgotPasswordContext: {
-        type: "clearForgotPasswordContext";
+    setPasswordResetEmail: {
+        type: "setPasswordResetEmail";
         params: import("xstate").NonReducibleUnknown;
     };
     clearRegistrationContext: {
         type: "clearRegistrationContext";
         params: import("xstate").NonReducibleUnknown;
     };
-    setPendingCredentials: {
-        type: "setPendingCredentials";
-        params: import("xstate").NonReducibleUnknown;
-    };
-    clearPendingCredentials: {
-        type: "clearPendingCredentials";
+    clearPasswordResetContext: {
+        type: "clearPasswordResetContext";
         params: import("xstate").NonReducibleUnknown;
     };
     setRegistrationActionToken: {
         type: "setRegistrationActionToken";
         params: import("xstate").NonReducibleUnknown;
     };
-    setResetActionToken: {
-        type: "setResetActionToken";
+    setPasswordResetActionToken: {
+        type: "setPasswordResetActionToken";
         params: import("xstate").NonReducibleUnknown;
     };
-    setPendingCredentialsFromNewPassword: {
-        type: "setPendingCredentialsFromNewPassword";
+    setRegistrationPendingPassword: {
+        type: "setRegistrationPendingPassword";
+        params: import("xstate").NonReducibleUnknown;
+    };
+    setPasswordResetPendingPassword: {
+        type: "setPasswordResetPendingPassword";
         params: import("xstate").NonReducibleUnknown;
     };
 }>, never, never, "checkingSession" | "validatingSession" | "fetchingProfileAfterValidation" | "refreshingToken" | "authorized" | "fetchingProfileAfterRefresh" | "loggingOut" | {
@@ -1588,7 +1618,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
-                                    readonly actions: readonly ["setSession", "clearPendingCredentials"];
+                                    readonly actions: readonly ["setSession"];
                                 };
                                 readonly onError: {
                                     readonly target: "idle";
@@ -1841,11 +1871,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         }) => LoginRequestDTO;
                         readonly onDone: {
                             readonly target: "#auth.authorized";
-                            readonly actions: readonly ["setSession", "clearRegistrationContext", "clearPendingCredentials"];
+                            readonly actions: readonly ["setSession", "clearRegistrationContext"];
                         };
                         readonly onError: {
                             readonly target: "login";
-                            readonly actions: readonly ["setError", "clearRegistrationContext", "clearPendingCredentials"];
+                            readonly actions: readonly ["setError", "clearRegistrationContext"];
                         };
                     };
                 };
@@ -1862,7 +1892,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             readonly on: {
                                 readonly REGISTER: {
                                     readonly target: "submitting";
-                                    readonly actions: readonly ["clearError", "setPendingCredentials", "setEmailFromPayload"];
+                                    readonly actions: readonly ["clearError", "setRegistrationEmail"];
                                 };
                             };
                         };
@@ -2385,11 +2415,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
-                                    readonly actions: readonly ["setSession", "clearRegistrationContext", "clearPendingCredentials"];
+                                    readonly actions: readonly ["setSession", "clearRegistrationContext"];
                                 };
                                 readonly onError: {
                                     readonly target: "#auth.unauthorized.login";
-                                    readonly actions: readonly ["setError", "clearRegistrationContext", "clearPendingCredentials"];
+                                    readonly actions: readonly ["setError", "clearRegistrationContext"];
                                 };
                             };
                         };
@@ -2400,7 +2430,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                     readonly on: {
                         readonly GO_TO_LOGIN: {
                             readonly target: "#auth.unauthorized.login";
-                            readonly actions: readonly ["clearForgotPasswordContext", "clearError"];
+                            readonly actions: readonly ["clearPasswordResetContext", "clearError"];
                         };
                     };
                     readonly states: {
@@ -2408,7 +2438,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             readonly on: {
                                 readonly FORGOT_PASSWORD: {
                                     readonly target: "submitting";
-                                    readonly actions: readonly ["setEmailFromPayload", "clearError"];
+                                    readonly actions: readonly ["setPasswordResetEmail", "clearError"];
                                 };
                             };
                         };
@@ -2551,7 +2581,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 };
                                 readonly CANCEL: {
                                     readonly target: "idle";
-                                    readonly actions: "clearForgotPasswordContext";
+                                    readonly actions: "clearPasswordResetContext";
                                 };
                             };
                         };
@@ -2676,7 +2706,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 };
                                 readonly onDone: {
                                     readonly target: "resetPassword";
-                                    readonly actions: "setResetActionToken";
+                                    readonly actions: "setPasswordResetActionToken";
                                 };
                                 readonly onError: {
                                     readonly target: "verifyOtp";
@@ -2694,7 +2724,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         };
                                     }>) => boolean;
                                     readonly target: "resettingPassword";
-                                    readonly actions: "setPendingCredentialsFromNewPassword";
+                                    readonly actions: "setPasswordResetPendingPassword";
                                 };
                             };
                         };
@@ -2942,11 +2972,11 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
-                                    readonly actions: readonly ["setSession", "clearForgotPasswordContext", "clearPendingCredentials"];
+                                    readonly actions: readonly ["setSession", "clearPasswordResetContext"];
                                 };
                                 readonly onError: {
                                     readonly target: "#auth.unauthorized.login";
-                                    readonly actions: readonly ["setError", "clearForgotPasswordContext", "clearPendingCredentials"];
+                                    readonly actions: readonly ["setError", "clearPasswordResetContext"];
                                 };
                             };
                         };

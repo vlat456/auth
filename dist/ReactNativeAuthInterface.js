@@ -85,12 +85,13 @@ class ReactNativeAuthInterface {
             // Note: We'll need to track the action token in the context or return it somehow
             // This requires updating the authMachine to store action tokens in context
             const subscription = this.authService.subscribe((state) => {
-                if (state.context.registrationActionToken || state.context.resetActionToken) {
-                    const token = state.context.registrationActionToken || state.context.resetActionToken;
-                    if (token) {
-                        resolve(token);
-                        subscription.unsubscribe();
-                    }
+                // Check for action token in registration or password reset context
+                const registrationToken = state.context.registration?.actionToken;
+                const resetToken = state.context.passwordReset?.actionToken;
+                const token = registrationToken || resetToken;
+                if (token) {
+                    resolve(token);
+                    subscription.unsubscribe();
                 }
                 else if (state.context.error) {
                     reject(new Error(state.context.error.message));

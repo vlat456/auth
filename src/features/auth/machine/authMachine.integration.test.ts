@@ -922,7 +922,10 @@ describe("Auth Machine Integration Tests", () => {
       await p2;
 
       // Clear email context to test guard
-      (actor.getSnapshot().context as any).email = undefined;
+      const regCtx = actor.getSnapshot().context as any;
+      if (regCtx.registration) {
+        regCtx.registration.email = undefined;
+      }
 
       // Attempt OTP verification - should be blocked by guard
       actor.send({
@@ -937,7 +940,10 @@ describe("Auth Machine Integration Tests", () => {
       });
 
       // Now set email and try again
-      (actor.getSnapshot().context as any).email = "newuser@test.com";
+      const regCtx2 = actor.getSnapshot().context as any;
+      if (regCtx2.registration) {
+        regCtx2.registration.email = "newuser@test.com";
+      }
       mockRepo.errors.push({
         method: "verifyOtp",
         error: new Error("OTP expired"),
@@ -992,7 +998,10 @@ describe("Auth Machine Integration Tests", () => {
       await p3;
 
       // Clear action token to test guard
-      (actor.getSnapshot().context as any).resetActionToken = undefined;
+      const pwdCtx = actor.getSnapshot().context as any;
+      if (pwdCtx.passwordReset) {
+        pwdCtx.passwordReset.actionToken = undefined;
+      }
 
       // Attempt reset password - should be blocked by guard
       actor.send({
@@ -1040,11 +1049,7 @@ describe("Auth Machine Integration Tests", () => {
       await p3;
 
       // Context should be cleared
-      expect(actor.getSnapshot().context.email).toBeUndefined();
-      expect(
-        actor.getSnapshot().context.registrationActionToken
-      ).toBeUndefined();
-      expect(actor.getSnapshot().context.pendingCredentials).toBeUndefined();
+      expect(actor.getSnapshot().context.registration).toBeUndefined();
     });
 
     it("should handle cancellation in forgot password flow", async () => {
@@ -1080,9 +1085,7 @@ describe("Auth Machine Integration Tests", () => {
       await p3;
 
       // Context should be cleared
-      expect(actor.getSnapshot().context.email).toBeUndefined();
-      expect(actor.getSnapshot().context.resetActionToken).toBeUndefined();
-      expect(actor.getSnapshot().context.pendingCredentials).toBeUndefined();
+      expect(actor.getSnapshot().context.passwordReset).toBeUndefined();
     });
   });
 

@@ -728,9 +728,7 @@ describe("Auth Machine Integration Tests", () => {
             actor.send({ type: "CANCEL" });
             await p3;
             // Context should be cleared
-            expect(actor.getSnapshot().context.email).toBeUndefined();
-            expect(actor.getSnapshot().context.registrationActionToken).toBeUndefined();
-            expect(actor.getSnapshot().context.pendingCredentials).toBeUndefined();
+            expect(actor.getSnapshot().context.registration).toBeUndefined();
         });
         it("should handle cancellation in forgot password flow", async () => {
             mockRepo.session = null;
@@ -754,9 +752,7 @@ describe("Auth Machine Integration Tests", () => {
             actor.send({ type: "CANCEL" });
             await p3;
             // Context should be cleared
-            expect(actor.getSnapshot().context.email).toBeUndefined();
-            expect(actor.getSnapshot().context.resetActionToken).toBeUndefined();
-            expect(actor.getSnapshot().context.pendingCredentials).toBeUndefined();
+            expect(actor.getSnapshot().context.passwordReset).toBeUndefined();
         });
     });
     describe("Edge Cases and Error Recovery", () => {
