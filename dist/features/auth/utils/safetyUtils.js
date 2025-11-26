@@ -74,7 +74,7 @@ function safeExtractAndValidatePayload(event, schema) {
     if (rawPayload === undefined) {
         return undefined;
     }
-    const result = (0, validationSchemas_1.validateSafe)(schema, rawPayload);
+    const result = schema.safeParse(rawPayload);
     if (result.success) {
         return result.data;
     }
@@ -148,19 +148,19 @@ function safeGetStringFromContext(value, fallback = "") {
  * Safely validate RegisterRequestDTO using Zod schema as single source of truth
  */
 function isValidRegisterRequest(payload) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.RegisterRequestSchema, payload).success;
+    return validationSchemas_1.RegisterRequestSchema.safeParse(payload).success;
 }
 /**
  * Safely validate RequestOtpDTO using Zod schema as single source of truth
  */
 function isValidRequestOtp(payload) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.RequestOtpSchema, payload).success;
+    return validationSchemas_1.RequestOtpSchema.safeParse(payload).success;
 }
 /**
  * Safely validate VerifyOtpDTO using Zod schema as single source of truth
  */
 function isValidVerifyOtp(payload) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.VerifyOtpSchema, payload).success;
+    return validationSchemas_1.VerifyOtpSchema.safeParse(payload).success;
 }
 /**
  * Safely extract and validate register payload from event
@@ -198,19 +198,19 @@ function safeExtractSessionOutput(event) {
  * Safely validate LoginRequestDTO using Zod schema as single source of truth
  */
 function isValidLoginRequest(payload) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginRequestSchema, payload).success;
+    return validationSchemas_1.LoginRequestSchema.safeParse(payload).success;
 }
 /**
  * Safely validate AuthSession using Zod schema as single source of truth
  */
 function isAuthSession(obj) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.AuthSessionSchema, obj).success;
+    return validationSchemas_1.AuthSessionSchema.safeParse(obj).success;
 }
 /**
  * Safely validate UserProfile using Zod schema as single source of truth
  */
 function isUserProfile(obj) {
-    return (0, validationSchemas_1.validateSafe)(validationSchemas_1.UserProfileSchema, obj).success;
+    return validationSchemas_1.UserProfileSchema.safeParse(obj).success;
 }
 /**
  * Safely extract action token from context with validation

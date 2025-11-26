@@ -3,7 +3,6 @@
  * Tests for validation schemas
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-const zod_1 = require("zod");
 const validationSchemas_1 = require("./validationSchemas");
 describe("Validation Schemas", () => {
     describe("EmailSchema", () => {
@@ -316,107 +315,6 @@ describe("Validation Schemas", () => {
                 status: 400,
             });
             expect(result.success).toBe(false);
-        });
-    });
-    describe("validateSafe", () => {
-        it("should return success result for valid data", () => {
-            const result = (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginRequestSchema, {
-                email: "test@example.com",
-                password: "password123",
-            });
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data).toBeDefined();
-            }
-        });
-        it("should return error result for invalid data", () => {
-            const result = (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginRequestSchema, {
-                email: "invalid",
-            });
-            expect(result.success).toBe(false);
-            if (!result.success) {
-                expect(result.errors).toBeDefined();
-            }
-        });
-        it("should aggregate multiple errors", () => {
-            const result = (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginRequestSchema, {});
-            expect(result.success).toBe(false);
-            if (!result.success) {
-                expect(Object.keys(result.errors).length).toBeGreaterThan(0);
-            }
-        });
-    });
-    describe("validateStrict", () => {
-        it("should return data for valid input", () => {
-            const data = (0, validationSchemas_1.validateStrict)(validationSchemas_1.LoginRequestSchema, {
-                email: "test@example.com",
-                password: "password123",
-            });
-            expect(data).toHaveProperty("email");
-            expect(data).toHaveProperty("password");
-        });
-        it("should throw error for invalid input", () => {
-            expect(() => {
-                (0, validationSchemas_1.validateStrict)(validationSchemas_1.LoginRequestSchema, { email: "invalid" });
-            }).toThrow();
-        });
-    });
-    describe("validateWithFallback", () => {
-        it("should return validated data for valid input", () => {
-            const fallback = { email: "fallback@example.com", password: "fallback" };
-            const result = (0, validationSchemas_1.validateWithFallback)(validationSchemas_1.LoginRequestSchema, {
-                email: "test@example.com",
-                password: "password123",
-            }, fallback);
-            expect(result.email).toBe("test@example.com");
-        });
-        it("should return fallback for invalid input", () => {
-            const fallback = { email: "fallback@example.com", password: "fallback" };
-            const result = (0, validationSchemas_1.validateWithFallback)(validationSchemas_1.LoginRequestSchema, {}, fallback);
-            expect(result).toEqual(fallback);
-        });
-    });
-    describe("Multiple validation errors for same field", () => {
-        it("should aggregate multiple errors for the same field path", () => {
-            // Create a custom schema that can produce multiple errors for the same field
-            const complexSchema = zod_1.z.object({
-                nested: zod_1.z.object({
-                    field: zod_1.z
-                        .string()
-                        .min(5, "Must be at least 5 characters")
-                        .email("Must be a valid email")
-                        .refine(val => val.includes(".com"), "Must include .com"),
-                }),
-            });
-            const result = (0, validationSchemas_1.validateSafe)(complexSchema, {
-                nested: {
-                    field: "test", // Fails multiple validations
-                },
-            });
-            expect(result.success).toBe(false);
-            if (!result.success) {
-                // The nested.field path should have multiple error messages
-                expect(result.errors["nested.field"]).toBeDefined();
-                expect(Array.isArray(result.errors["nested.field"])).toBe(true);
-                expect(result.errors["nested.field"].length).toBeGreaterThan(1);
-            }
-        });
-        it("should properly aggregate errors when field key already exists", () => {
-            // Schema that has multiple validation rules
-            const schema = zod_1.z.object({
-                email: zod_1.z
-                    .string()
-                    .min(5)
-                    .email()
-                    .refine(val => !val.includes("spam"), "Spam email not allowed"),
-            });
-            const result = (0, validationSchemas_1.validateSafe)(schema, { email: "a" });
-            expect(result.success).toBe(false);
-            if (!result.success) {
-                // Multiple errors aggregated under the same field path
-                expect(result.errors.email).toBeDefined();
-                expect(result.errors.email.length).toBeGreaterThan(1);
-            }
         });
     });
 });

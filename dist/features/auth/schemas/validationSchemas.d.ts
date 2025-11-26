@@ -104,33 +104,3 @@ export type ValidatedLoginRequest = z.infer<typeof LoginRequestSchema>;
 export type ValidatedRegisterRequest = z.infer<typeof RegisterRequestSchema>;
 export type ValidatedAuthSession = z.infer<typeof AuthSessionSchema>;
 export type ValidatedUserProfile = z.infer<typeof UserProfileSchema>;
-export type ValidationResult<T> = {
-    success: true;
-    data: T;
-} | {
-    success: false;
-    errors: Record<string, string[]>;
-};
-/**
- * Safely validate data against a schema and return structured result
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Structured result with either validated data or detailed errors
- */
-export declare function validateSafe<T>(schema: z.ZodSchema<T>, data: unknown): ValidationResult<T>;
-/**
- * Validate data and throw detailed error on failure
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Validated data
- * @throws ZodError on validation failure
- */
-export declare function validateStrict<T>(schema: z.ZodSchema<T>, data: unknown): T;
-/**
- * Try to validate with a fallback value
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @param fallback - Value to return on validation failure
- * @returns Validated data or fallback
- */
-export declare function validateWithFallback<T>(schema: z.ZodSchema<T>, data: unknown, fallback: T): T;

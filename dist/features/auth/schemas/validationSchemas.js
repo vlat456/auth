@@ -13,56 +13,53 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApiErrorResponseSchema = exports.RefreshResponseSchemaWrapper = exports.LoginResponseSchemaWrapper = exports.ApiSuccessResponseSchema = exports.AuthSessionSchema = exports.UserProfileSchema = exports.RefreshResponseDataSchema = exports.LoginResponseSchema = exports.RefreshRequestSchema = exports.DeleteAccountRequestSchema = exports.ChangePasswordRequestSchema = exports.CompletePasswordResetSchema = exports.CompleteRegistrationSchema = exports.VerifyOtpSchema = exports.RequestOtpSchema = exports.RegisterRequestSchema = exports.LoginRequestSchema = exports.ActionTokenSchema = exports.OtpSchema = exports.PasswordSchema = exports.EmailSchema = void 0;
-exports.validateSafe = validateSafe;
-exports.validateStrict = validateStrict;
-exports.validateWithFallback = validateWithFallback;
 const zod_1 = require("zod");
 // ============================================================================
 // Sanitization helpers
 // ============================================================================
 const sanitizeInput = (input) => {
-    if (typeof input !== 'string') {
-        return '';
+    if (typeof input !== "string") {
+        return "";
     }
     // Remove or escape potentially dangerous characters
     return input
-        .replace(/</g, '&lt;') // Prevent HTML injection
-        .replace(/>/g, '&gt;') // Prevent HTML injection
-        .replace(/"/g, '&quot;') // Prevent attribute escaping
-        .replace(/'/g, '&#x27;') // Prevent attribute escaping
-        .replace(/\//g, '&#x2F;') // Prevent closing tags
+        .replace(/</g, "&lt;") // Prevent HTML injection
+        .replace(/>/g, "&gt;") // Prevent HTML injection
+        .replace(/"/g, "&quot;") // Prevent attribute escaping
+        .replace(/'/g, "&#x27;") // Prevent attribute escaping
+        .replace(/\//g, "&#x2F;") // Prevent closing tags
         .trim(); // Remove leading/trailing whitespace
 };
 const sanitizeEmail = (email) => {
-    if (typeof email !== 'string') {
-        return '';
+    if (typeof email !== "string") {
+        return "";
     }
     // Use validator to normalize and validate email (if available, otherwise basic normalization)
     // For now, we implement basic normalization
     return email.toLowerCase().trim().substring(0, 254);
 };
 const sanitizePassword = (password) => {
-    if (typeof password !== 'string') {
-        return '';
+    if (typeof password !== "string") {
+        return "";
     }
     // Don't overly restrict password chars as this might reduce entropy
     // Just remove potentially dangerous characters
-    return password.replace(/['"]/g, '');
+    return password.replace(/['"]/g, "");
 };
 const sanitizeOtp = (otp) => {
-    if (typeof otp !== 'string') {
-        return '';
+    if (typeof otp !== "string") {
+        return "";
     }
     // Only allow digits and ensure it's not too long
-    const digitsOnly = otp.replace(/\D/g, '').substring(0, 10);
+    const digitsOnly = otp.replace(/\D/g, "").substring(0, 10);
     return digitsOnly;
 };
 const sanitizeActionToken = (token) => {
-    if (typeof token !== 'string') {
-        return '';
+    if (typeof token !== "string") {
+        return "";
     }
     // Remove potential dangerous characters but keep token format
-    return token.replace(/['"<>]/g, '').trim();
+    return token.replace(/['"<>]/g, "").trim();
 };
 // ============================================================================
 // Primitive Schemas with sanitization
@@ -178,58 +175,3 @@ exports.ApiErrorResponseSchema = zod_1.z.object({
     message: zod_1.z.string(),
     path: zod_1.z.string(),
 });
-// ============================================================================
-// Helper Functions for Safe Validation
-// ============================================================================
-/**
- * Safely validate data against a schema and return structured result
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Structured result with either validated data or detailed errors
- */
-function validateSafe(schema, data) {
-    const result = schema.safeParse(data);
-    if (result.success) {
-        return {
-            success: true,
-            data: result.data,
-        };
-    }
-    // Transform Zod errors into a more readable format
-    const errors = {};
-    for (const issue of result.error.issues) {
-        const path = issue.path.join(".");
-        const pathKey = path || "root";
-        if (pathKey in errors) {
-            errors[pathKey].push(issue.message);
-        }
-        else {
-            errors[pathKey] = [issue.message];
-        }
-    }
-    return {
-        success: false,
-        errors,
-    };
-}
-/**
- * Validate data and throw detailed error on failure
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Validated data
- * @throws ZodError on validation failure
- */
-function validateStrict(schema, data) {
-    return schema.parse(data);
-}
-/**
- * Try to validate with a fallback value
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @param fallback - Value to return on validation failure
- * @returns Validated data or fallback
- */
-function validateWithFallback(schema, data, fallback) {
-    const result = schema.safeParse(data);
-    return result.success ? result.data : fallback;
-}

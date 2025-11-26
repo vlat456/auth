@@ -8,16 +8,16 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from "axios";
-import { 
-  IAuthRepository, 
-  LoginRequestDTO, 
-  RegisterRequestDTO, 
-  RequestOtpDTO, 
-  VerifyOtpDTO, 
-  CompletePasswordResetDTO, 
-  CompleteRegistrationDTO, 
-  AuthSession, 
-  ApiSuccessResponse, 
+import {
+  IAuthRepository,
+  LoginRequestDTO,
+  RegisterRequestDTO,
+  RequestOtpDTO,
+  VerifyOtpDTO,
+  CompletePasswordResetDTO,
+  CompleteRegistrationDTO,
+  AuthSession,
+  ApiSuccessResponse,
   LoginResponseDTO,
   RefreshRequestDTO,
   RefreshResponseData,
@@ -28,8 +28,8 @@ import { withErrorHandling } from "../utils/errorHandler";
 import {
   LoginResponseSchemaWrapper,
   RefreshResponseSchemaWrapper,
-  validateSafe,
   AuthSessionSchema,
+  UserProfileSchema,
 } from "../schemas/validationSchemas";
 
 const STORAGE_KEY = "user_session_token";
@@ -48,10 +48,7 @@ export class AuthRepository implements IAuthRepository {
   private apiClient: AxiosInstance;
   private storage: IStorage;
 
-  constructor(
-    storage: IStorage,
-    baseURL?: string,
-  ) {
+  constructor(storage: IStorage, baseURL?: string) {
     this.storage = storage;
 
     const finalBaseURL = baseURL || "https://api.astra.example.com";
@@ -74,32 +71,28 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<LoginResponseDTO>
       >("/auth/login", payload);
 
-      const validationResult = validateSafe(LoginResponseSchemaWrapper, response.data);
-      if (!validationResult.success) {
-        throw new Error(`Invalid login response: ${JSON.stringify(validationResult.errors)}`);
-      }
-
-      const validatedData = validationResult.data;
+      // Validate using direct Zod parsing
+      const validatedData = LoginResponseSchemaWrapper.parse(response.data);
       const session: AuthSession = {
         accessToken: validatedData.data.accessToken,
         refreshToken: validatedData.data.refreshToken,
       };
-      
+
       await this.saveSession(session);
       return session;
-    },
+    }
   );
 
   register = withErrorHandling(
     async (payload: RegisterRequestDTO): Promise<void> => {
       await this.apiClient.post("/auth/register", payload);
-    },
+    }
   );
 
   requestPasswordReset = withErrorHandling(
     async (payload: RequestOtpDTO): Promise<void> => {
       await this.apiClient.post("/auth/otp/request", payload);
-    },
+    }
   );
 
   verifyOtp = withErrorHandling(
@@ -108,19 +101,19 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<{ actionToken: string }>
       >("/auth/otp/verify", payload);
       return data.data.actionToken;
-    },
+    }
   );
 
   completeRegistration = withErrorHandling(
     async (payload: CompleteRegistrationDTO): Promise<void> => {
       await this.apiClient.post("/auth/register/complete", payload);
-    },
+    }
   );
 
   completePasswordReset = withErrorHandling(
     async (payload: CompletePasswordResetDTO): Promise<void> => {
       await this.apiClient.post("/auth/password/reset/complete", payload);
-    },
+    }
   );
 
   /**
@@ -142,12 +135,8 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<RefreshResponseData>
       >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
 
-      const validationResult = validateSafe(RefreshResponseSchemaWrapper, response.data);
-      if (!validationResult.success) {
-        throw new Error(`Invalid refresh response: ${JSON.stringify(validationResult.errors)}`);
-      }
-
-      const validatedData = validationResult.data;
+      // Validate using direct Zod parsing
+      const validatedData = RefreshResponseSchemaWrapper.parse(response.data);
       const newAccessToken = validatedData.data.accessToken;
 
       // Get the current session to preserve other data
@@ -234,32 +223,36 @@ export class AuthRepository implements IAuthRepository {
 
   private processParsedSession(parsed: unknown): AuthSession | null {
     // Use Zod to validate the parsed session object
-    const validationResult = validateSafe(AuthSessionSchema, parsed);
-    if (validationResult.success) {
-      return validationResult.data as AuthSession;
-    }
-
-    // For backward compatibility with old stored data that might have empty tokens,
-    // we'll try a more permissive validation but only for the case where access token exists
-    if (typeof parsed === 'object' && parsed !== null) {
-      const parsedObj = parsed as Record<string, unknown>;
-      if ('accessToken' in parsedObj && typeof parsedObj.accessToken === 'string') {
-        // Return a session with just the access token, setting others to undefined if missing
-        return {
-          accessToken: parsedObj.accessToken,
-          refreshToken: typeof parsedObj.refreshToken === 'string' ? parsedObj.refreshToken : undefined,
-          profile: this.isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
-        };
+    try {
+      return AuthSessionSchema.parse(parsed) as AuthSession;
+    } catch {
+      // For backward compatibility with old stored data that might have empty tokens,
+      // we'll try a more permissive validation but only for the case where access token exists
+      if (typeof parsed === "object" && parsed !== null) {
+        const parsedObj = parsed as Record<string, unknown>;
+        if (
+          "accessToken" in parsedObj &&
+          typeof parsedObj.accessToken === "string"
+        ) {
+          // Return a session with just the access token, setting others to undefined if missing
+          return {
+            accessToken: parsedObj.accessToken,
+            refreshToken:
+              typeof parsedObj.refreshToken === "string"
+                ? parsedObj.refreshToken
+                : undefined,
+            profile: this.isUserProfile(parsedObj.profile)
+              ? parsedObj.profile
+              : undefined,
+          };
+        }
       }
+      return null;
     }
-
-    return null;
   }
 
   private isUserProfile(data: unknown): data is UserProfile {
-    if (!data || typeof data !== 'object') return false;
-    const profile = data as Partial<UserProfile>;
-    return typeof profile.id === 'string' && typeof profile.email === 'string';
+    return UserProfileSchema.safeParse(data).success;
   }
 
   private initializeInterceptors() {
@@ -284,7 +277,7 @@ export class AuthRepository implements IAuthRepository {
           return this.apiClient(config);
         }
         return Promise.reject(error);
-      },
+      }
     );
   }
 }

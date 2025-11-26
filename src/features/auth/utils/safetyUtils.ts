@@ -8,8 +8,6 @@ import {
   RequestOtpSchema,
   AuthSessionSchema,
   UserProfileSchema,
-  validateSafe,
-  validateStrict,
 } from "../schemas/validationSchemas";
 import type { ZodSchema } from "zod";
 
@@ -72,7 +70,7 @@ export function safeExtractAndValidatePayload<T>(
     return undefined;
   }
 
-  const result = validateSafe(schema, rawPayload);
+  const result = schema.safeParse(rawPayload);
   if (result.success) {
     return result.data as T;
   }
@@ -92,7 +90,8 @@ export function createSafeExtractFunction<T>(schema: ZodSchema<T>) {
 /**
  * Safely extract and validate login payload from event
  */
-export const safeExtractLoginPayload = createSafeExtractFunction(LoginRequestSchema);
+export const safeExtractLoginPayload =
+  createSafeExtractFunction(LoginRequestSchema);
 
 /**
  * Safely extract a value from an event payload with type validation
@@ -119,7 +118,11 @@ export function safeExtractStringFromPayload(
   event: AuthEvent,
   key: string
 ): string | undefined {
-  return safeExtractValue(event, key, (value): value is string => typeof value === "string");
+  return safeExtractValue(
+    event,
+    key,
+    (value): value is string => typeof value === "string"
+  );
 }
 
 /**
@@ -171,7 +174,7 @@ export function safeGetStringFromContext(
 export function isValidRegisterRequest(
   payload: unknown
 ): payload is { email: string; password: string } {
-  return validateSafe(RegisterRequestSchema, payload).success;
+  return RegisterRequestSchema.safeParse(payload).success;
 }
 
 /**
@@ -180,7 +183,7 @@ export function isValidRegisterRequest(
 export function isValidRequestOtp(
   payload: unknown
 ): payload is { email: string } {
-  return validateSafe(RequestOtpSchema, payload).success;
+  return RequestOtpSchema.safeParse(payload).success;
 }
 
 /**
@@ -189,23 +192,27 @@ export function isValidRequestOtp(
 export function isValidVerifyOtp(
   payload: unknown
 ): payload is { email: string; otp: string } {
-  return validateSafe(VerifyOtpSchema, payload).success;
+  return VerifyOtpSchema.safeParse(payload).success;
 }
 
 /**
  * Safely extract and validate register payload from event
  */
-export const safeExtractRegisterPayload = createSafeExtractFunction(RegisterRequestSchema);
+export const safeExtractRegisterPayload = createSafeExtractFunction(
+  RegisterRequestSchema
+);
 
 /**
  * Safely extract and validate OTP request payload from event
  */
-export const safeExtractOtpRequestPayload = createSafeExtractFunction(RequestOtpSchema);
+export const safeExtractOtpRequestPayload =
+  createSafeExtractFunction(RequestOtpSchema);
 
 /**
  * Safely extract and validate verify OTP payload from event
  */
-export const safeExtractVerifyOtpPayload = createSafeExtractFunction(VerifyOtpSchema);
+export const safeExtractVerifyOtpPayload =
+  createSafeExtractFunction(VerifyOtpSchema);
 
 /**
  * Safely extract new password from RESET_PASSWORD event
@@ -239,21 +246,21 @@ export function safeExtractSessionOutput(
 export function isValidLoginRequest(
   payload: unknown
 ): payload is LoginRequestDTO {
-  return validateSafe(LoginRequestSchema, payload).success;
+  return LoginRequestSchema.safeParse(payload).success;
 }
 
 /**
  * Safely validate AuthSession using Zod schema as single source of truth
  */
 export function isAuthSession(obj: unknown): obj is AuthSession {
-  return validateSafe(AuthSessionSchema, obj).success;
+  return AuthSessionSchema.safeParse(obj).success;
 }
 
 /**
  * Safely validate UserProfile using Zod schema as single source of truth
  */
 export function isUserProfile(obj: unknown): obj is UserProfile {
-  return validateSafe(UserProfileSchema, obj).success;
+  return UserProfileSchema.safeParse(obj).success;
 }
 /**
  * Safely extract action token from context with validation
@@ -293,7 +300,7 @@ export function safeArrayAccess<T>(
  * Returns non-empty password if available, otherwise empty string.
  */
 export const resolveRegistrationPassword = (
-  pending?: LoginRequestDTO,
+  pending?: LoginRequestDTO
 ): string => {
   if (
     pending &&
@@ -311,7 +318,7 @@ export const resolveRegistrationPassword = (
  * This prevents silent failures when credentials are lost during flow.
  */
 export const hasValidCredentials = (
-  credentials?: LoginRequestDTO,
+  credentials?: LoginRequestDTO
 ): credentials is LoginRequestDTO => {
   return (
     credentials !== undefined &&

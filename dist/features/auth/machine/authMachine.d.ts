@@ -48,13 +48,18 @@ export type AuthEvent = {
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
 };
-export type EventWithSystem = AuthEvent | {
+type DoneActorEvent<T = void> = {
     type: `xstate.done.actor.${string}`;
-    output: any;
-} | {
-    type: `xstate.error.actor.${string}`;
-    error: any;
+    output: T;
+    actorId?: string;
 };
+type ErrorActorEvent = {
+    type: `xstate.error.actor.${string}`;
+    error: Error | unknown;
+    actorId?: string;
+};
+type SystemEvents = DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string> | ErrorActorEvent;
+export type EventWithSystem = AuthEvent | SystemEvents;
 export declare const createAuthMachine: (authRepository: IAuthRepository) => import("xstate").StateMachine<AuthContext, {
     type: "CHECK_SESSION";
 } | {
@@ -91,13 +96,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     type: "GO_TO_LOGIN";
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
-} | {
-    type: `xstate.done.actor.${string}`;
-    output: any;
-} | {
-    type: `xstate.error.actor.${string}`;
-    error: any;
-}, {
+} | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, {
     [x: string]: import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, {
         refreshToken: string;
     }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
@@ -271,13 +270,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -392,13 +385,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    };
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -435,13 +422,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -477,13 +458,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, import("xstate").AnyEventObject>;
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
@@ -536,13 +511,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    };
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -579,13 +548,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -621,13 +584,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, import("xstate").AnyEventObject>;
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
@@ -669,13 +626,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -777,13 +728,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -894,13 +839,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    };
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -937,13 +876,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -979,13 +912,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, import("xstate").AnyEventObject>;
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                 }) => {
                     refreshToken: string;
                 };
@@ -1027,13 +954,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1135,13 +1056,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1248,13 +1163,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    };
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -1291,13 +1200,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -1333,13 +1236,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, import("xstate").AnyEventObject>;
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
@@ -1381,13 +1278,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1489,13 +1380,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, undefined, import("xstate").Values<{
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1626,13 +1511,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1669,13 +1548,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -1711,13 +1584,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -1772,13 +1639,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            };
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                             self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                 type: "CHECK_SESSION";
                             } | {
@@ -1815,13 +1676,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                 type: "CHECK_SESSION";
                             } | {
                                 type: "LOGIN";
@@ -1857,13 +1712,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            }, import("xstate").AnyEventObject>;
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                         }) => CompleteRegistrationDTO;
                         readonly onDone: {
                             readonly target: "loggingInAfterCompletion";
@@ -1915,13 +1764,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            };
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                             self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                 type: "CHECK_SESSION";
                             } | {
@@ -1958,13 +1801,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                 type: "CHECK_SESSION";
                             } | {
                                 type: "LOGIN";
@@ -2000,13 +1837,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | {
-                                type: `xstate.done.actor.${string}`;
-                                output: any;
-                            } | {
-                                type: `xstate.error.actor.${string}`;
-                                error: any;
-                            }, import("xstate").AnyEventObject>;
+                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                         }) => LoginRequestDTO;
                         readonly onDone: {
                             readonly target: "#auth.authorized";
@@ -2082,13 +1913,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2125,13 +1950,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2167,13 +1986,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => RegisterRequestDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
@@ -2240,13 +2053,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2283,13 +2090,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2325,13 +2126,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
                                     otp: string;
@@ -2387,13 +2182,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2430,13 +2219,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2472,13 +2255,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
                                     newPassword: string;
@@ -2531,13 +2308,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2574,13 +2345,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2616,13 +2381,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -2697,13 +2456,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2740,13 +2493,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2782,13 +2529,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => RequestOtpDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
@@ -2855,13 +2596,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2898,13 +2633,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2940,13 +2669,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
                                     otp: string;
@@ -3016,13 +2739,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -3059,13 +2776,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -3101,13 +2812,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
                                     newPassword: string;
@@ -3160,13 +2865,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    };
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -3203,13 +2902,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -3245,13 +2938,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | {
-                                        type: `xstate.done.actor.${string}`;
-                                        output: any;
-                                    } | {
-                                        type: `xstate.error.actor.${string}`;
-                                        error: any;
-                                    }, import("xstate").AnyEventObject>;
+                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -3317,13 +3004,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    };
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -3360,13 +3041,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -3402,13 +3077,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | {
-                        type: `xstate.done.actor.${string}`;
-                        output: any;
-                    } | {
-                        type: `xstate.error.actor.${string}`;
-                        error: any;
-                    }, import("xstate").AnyEventObject>;
+                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession | undefined;
                 };
@@ -3429,3 +3098,4 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
         };
     };
 }>;
+export {};

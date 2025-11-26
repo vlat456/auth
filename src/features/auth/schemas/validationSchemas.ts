@@ -35,23 +35,23 @@ import type {
 // ============================================================================
 
 const sanitizeInput = (input: string): string => {
-  if (typeof input !== 'string') {
-    return '';
+  if (typeof input !== "string") {
+    return "";
   }
 
   // Remove or escape potentially dangerous characters
   return input
-    .replace(/</g, '&lt;')   // Prevent HTML injection
-    .replace(/>/g, '&gt;')   // Prevent HTML injection
-    .replace(/"/g, '&quot;') // Prevent attribute escaping
-    .replace(/'/g, '&#x27;') // Prevent attribute escaping
-    .replace(/\//g, '&#x2F;') // Prevent closing tags
+    .replace(/</g, "&lt;") // Prevent HTML injection
+    .replace(/>/g, "&gt;") // Prevent HTML injection
+    .replace(/"/g, "&quot;") // Prevent attribute escaping
+    .replace(/'/g, "&#x27;") // Prevent attribute escaping
+    .replace(/\//g, "&#x2F;") // Prevent closing tags
     .trim(); // Remove leading/trailing whitespace
 };
 
 const sanitizeEmail = (email: string): string => {
-  if (typeof email !== 'string') {
-    return '';
+  if (typeof email !== "string") {
+    return "";
   }
 
   // Use validator to normalize and validate email (if available, otherwise basic normalization)
@@ -60,32 +60,32 @@ const sanitizeEmail = (email: string): string => {
 };
 
 const sanitizePassword = (password: string): string => {
-  if (typeof password !== 'string') {
-    return '';
+  if (typeof password !== "string") {
+    return "";
   }
 
   // Don't overly restrict password chars as this might reduce entropy
   // Just remove potentially dangerous characters
-  return password.replace(/['"]/g, '');
+  return password.replace(/['"]/g, "");
 };
 
 const sanitizeOtp = (otp: string): string => {
-  if (typeof otp !== 'string') {
-    return '';
+  if (typeof otp !== "string") {
+    return "";
   }
 
   // Only allow digits and ensure it's not too long
-  const digitsOnly = otp.replace(/\D/g, '').substring(0, 10);
+  const digitsOnly = otp.replace(/\D/g, "").substring(0, 10);
   return digitsOnly;
 };
 
 const sanitizeActionToken = (token: string): string => {
-  if (typeof token !== 'string') {
-    return '';
+  if (typeof token !== "string") {
+    return "";
   }
 
   // Remove potential dangerous characters but keep token format
-  return token.replace(/['"<>]/g, '').trim();
+  return token.replace(/['"<>]/g, "").trim();
 };
 
 // ============================================================================
@@ -106,7 +106,8 @@ const UnsanitizedPasswordSchema = z
   .min(8, "Password must be at least 8 characters")
   .max(128, "Password is too long"); // Reasonable max length
 
-export const PasswordSchema = UnsanitizedPasswordSchema.transform(sanitizePassword);
+export const PasswordSchema =
+  UnsanitizedPasswordSchema.transform(sanitizePassword);
 
 const UnsanitizedOtpSchema = z
   .string()
@@ -121,7 +122,8 @@ const UnsanitizedActionTokenSchema = z
   .min(20, "Invalid action token format")
   .max(512, "Action token is too long"); // Reasonable max length for tokens
 
-export const ActionTokenSchema = UnsanitizedActionTokenSchema.transform(sanitizeActionToken);
+export const ActionTokenSchema =
+  UnsanitizedActionTokenSchema.transform(sanitizeActionToken);
 
 // ============================================================================
 // DTO Schemas
@@ -169,9 +171,11 @@ const UnsanitizedRefreshRequestSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 }) satisfies z.ZodType<RefreshRequestDTO>;
 
-export const RefreshRequestSchema = UnsanitizedRefreshRequestSchema.transform((val) => ({
-  refreshToken: val.refreshToken.trim(),
-}));
+export const RefreshRequestSchema = UnsanitizedRefreshRequestSchema.transform(
+  (val) => ({
+    refreshToken: val.refreshToken.trim(),
+  })
+);
 
 // ============================================================================
 // Response Schemas
@@ -241,80 +245,3 @@ export type ValidatedLoginRequest = z.infer<typeof LoginRequestSchema>;
 export type ValidatedRegisterRequest = z.infer<typeof RegisterRequestSchema>;
 export type ValidatedAuthSession = z.infer<typeof AuthSessionSchema>;
 export type ValidatedUserProfile = z.infer<typeof UserProfileSchema>;
-
-// ============================================================================
-// Validation Result Types
-// ============================================================================
-
-export type ValidationResult<T> =
-  | { success: true; data: T }
-  | { success: false; errors: Record<string, string[]> };
-
-// ============================================================================
-// Helper Functions for Safe Validation
-// ============================================================================
-
-/**
- * Safely validate data against a schema and return structured result
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Structured result with either validated data or detailed errors
- */
-export function validateSafe<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown
-): ValidationResult<T> {
-  const result = schema.safeParse(data);
-
-  if (result.success) {
-    return {
-      success: true,
-      data: result.data,
-    };
-  }
-
-  // Transform Zod errors into a more readable format
-  const errors: Record<string, string[]> = {};
-  for (const issue of result.error.issues) {
-    const path = issue.path.join(".");
-    const pathKey = path || "root";
-
-    if (pathKey in errors) {
-      errors[pathKey].push(issue.message);
-    } else {
-      errors[pathKey] = [issue.message];
-    }
-  }
-
-  return {
-    success: false,
-    errors,
-  };
-}
-
-/**
- * Validate data and throw detailed error on failure
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @returns Validated data
- * @throws ZodError on validation failure
- */
-export function validateStrict<T>(schema: z.ZodSchema<T>, data: unknown): T {
-  return schema.parse(data);
-}
-
-/**
- * Try to validate with a fallback value
- * @param schema - Zod schema to validate against
- * @param data - Data to validate
- * @param fallback - Value to return on validation failure
- * @returns Validated data or fallback
- */
-export function validateWithFallback<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown,
-  fallback: T
-): T {
-  const result = schema.safeParse(data);
-  return result.success ? result.data : fallback;
-}

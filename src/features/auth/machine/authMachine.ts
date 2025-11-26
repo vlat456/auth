@@ -44,11 +44,29 @@ export type AuthEvent =
   | { type: "GO_TO_LOGIN" }
   | { type: "GO_TO_FORGOT_PASSWORD" };
 
+// Type-safe system event handlers
+type DoneActorEvent<T = void> = {
+  type: `xstate.done.actor.${string}`;
+  output: T;
+  actorId?: string;
+};
+
+type ErrorActorEvent = {
+  type: `xstate.error.actor.${string}`;
+  error: Error | unknown;
+  actorId?: string;
+};
+
+// Union type for specific actor outputs based on actual machine actors
+type SystemEvents =
+  | DoneActorEvent<AuthSession | null> // checkSession, validateSessionWithServer, refreshProfile
+  | DoneActorEvent<AuthSession> // loginUser, refreshToken
+  | DoneActorEvent<void> // registerUser, verifyOtp, completePasswordReset, completeRegistration
+  | DoneActorEvent<string> // verifyOtp (returns action token)
+  | ErrorActorEvent;
+
 // Extended event type that includes both user events and system events
-export type EventWithSystem =
-  | AuthEvent
-  | { type: `xstate.done.actor.${string}`; output: any }
-  | { type: `xstate.error.actor.${string}`; error: any };
+export type EventWithSystem = AuthEvent | SystemEvents;
 
 export const createAuthMachine = (authRepository: IAuthRepository) => {
   return setup({

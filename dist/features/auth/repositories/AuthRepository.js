@@ -24,11 +24,8 @@ class AuthRepository {
          */
         this.login = (0, errorHandler_1.withErrorHandling)(async (payload) => {
             const response = await this.apiClient.post("/auth/login", payload);
-            const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.LoginResponseSchemaWrapper, response.data);
-            if (!validationResult.success) {
-                throw new Error(`Invalid login response: ${JSON.stringify(validationResult.errors)}`);
-            }
-            const validatedData = validationResult.data;
+            // Validate using direct Zod parsing
+            const validatedData = validationSchemas_1.LoginResponseSchemaWrapper.parse(response.data);
             const session = {
                 accessToken: validatedData.data.accessToken,
                 refreshToken: validatedData.data.refreshToken,
@@ -59,11 +56,8 @@ class AuthRepository {
          */
         this.refresh = (0, errorHandler_1.withErrorHandling)(async (refreshToken) => {
             const response = await this.apiClient.post("/auth/refresh-token", { refreshToken });
-            const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.RefreshResponseSchemaWrapper, response.data);
-            if (!validationResult.success) {
-                throw new Error(`Invalid refresh response: ${JSON.stringify(validationResult.errors)}`);
-            }
-            const validatedData = validationResult.data;
+            // Validate using direct Zod parsing
+            const validatedData = validationSchemas_1.RefreshResponseSchemaWrapper.parse(response.data);
             const newAccessToken = validatedData.data.accessToken;
             // Get the current session to preserve other data
             const currentSession = await this.readSession();
@@ -154,30 +148,33 @@ class AuthRepository {
     }
     processParsedSession(parsed) {
         // Use Zod to validate the parsed session object
-        const validationResult = (0, validationSchemas_1.validateSafe)(validationSchemas_1.AuthSessionSchema, parsed);
-        if (validationResult.success) {
-            return validationResult.data;
+        try {
+            return validationSchemas_1.AuthSessionSchema.parse(parsed);
         }
-        // For backward compatibility with old stored data that might have empty tokens,
-        // we'll try a more permissive validation but only for the case where access token exists
-        if (typeof parsed === 'object' && parsed !== null) {
-            const parsedObj = parsed;
-            if ('accessToken' in parsedObj && typeof parsedObj.accessToken === 'string') {
-                // Return a session with just the access token, setting others to undefined if missing
-                return {
-                    accessToken: parsedObj.accessToken,
-                    refreshToken: typeof parsedObj.refreshToken === 'string' ? parsedObj.refreshToken : undefined,
-                    profile: this.isUserProfile(parsedObj.profile) ? parsedObj.profile : undefined
-                };
+        catch {
+            // For backward compatibility with old stored data that might have empty tokens,
+            // we'll try a more permissive validation but only for the case where access token exists
+            if (typeof parsed === "object" && parsed !== null) {
+                const parsedObj = parsed;
+                if ("accessToken" in parsedObj &&
+                    typeof parsedObj.accessToken === "string") {
+                    // Return a session with just the access token, setting others to undefined if missing
+                    return {
+                        accessToken: parsedObj.accessToken,
+                        refreshToken: typeof parsedObj.refreshToken === "string"
+                            ? parsedObj.refreshToken
+                            : undefined,
+                        profile: this.isUserProfile(parsedObj.profile)
+                            ? parsedObj.profile
+                            : undefined,
+                    };
+                }
             }
+            return null;
         }
-        return null;
     }
     isUserProfile(data) {
-        if (!data || typeof data !== 'object')
-            return false;
-        const profile = data;
-        return typeof profile.id === 'string' && typeof profile.email === 'string';
+        return validationSchemas_1.UserProfileSchema.safeParse(data).success;
     }
     initializeInterceptors() {
         this.apiClient.interceptors.response.use((response) => response, async (error) => {

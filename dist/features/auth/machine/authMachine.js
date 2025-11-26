@@ -149,7 +149,9 @@ const createAuthMachine = (authRepository) => {
                     // Extract newPassword from RESET_PASSWORD event
                     if (event.type === "RESET_PASSWORD" && "payload" in event) {
                         const payload = event.payload;
-                        if (payload && typeof payload === "object" && "newPassword" in payload) {
+                        if (payload &&
+                            typeof payload === "object" &&
+                            "newPassword" in payload) {
                             return {
                                 email: context.email ?? "",
                                 password: payload.newPassword,
