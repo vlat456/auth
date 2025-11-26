@@ -120,9 +120,9 @@ export class AuthRepository implements IAuthRepository {
    * Checks current session by reading from storage
    * (state management is handled by the auth machine)
    */
-  async checkSession(): Promise<AuthSession | null> {
+  checkSession = withErrorHandling(async (): Promise<AuthSession | null> => {
     return await this.readSession();
-  }
+  });
 
   /**
    * Refreshes the access token using a refresh token.
@@ -161,38 +161,33 @@ export class AuthRepository implements IAuthRepository {
   /**
    * Refreshes the user profile data without requiring a token refresh.
    */
-  async refreshProfile(): Promise<AuthSession | null> {
+  refreshProfile = withErrorHandling(async (): Promise<AuthSession | null> => {
     const session = await this.readSession();
     if (!session) return null;
 
-    try {
-      const response = await this.apiClient.get<UserProfile>("/auth/me", {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      });
+    const response = await this.apiClient.get<UserProfile>("/auth/me", {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    });
 
-      const userData = response.data;
-      if (!this.isUserProfile(userData)) {
-        return null;
-      }
-
-      // Update session with fresh profile
-      const updatedSession: AuthSession = {
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        profile: userData,
-      };
-
-      await this.saveSession(updatedSession);
-      return updatedSession;
-    } catch {
-      // Return null on profile fetch failure
+    const userData = response.data;
+    if (!this.isUserProfile(userData)) {
       return null;
     }
-  }
 
-  async logout(): Promise<void> {
+    // Update session with fresh profile
+    const updatedSession: AuthSession = {
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      profile: userData,
+    };
+
+    await this.saveSession(updatedSession);
+    return updatedSession;
+  });
+
+  logout = withErrorHandling(async (): Promise<void> => {
     await this.storage.removeItem(STORAGE_KEY);
-  }
+  });
 
   // --- Internals ---
 

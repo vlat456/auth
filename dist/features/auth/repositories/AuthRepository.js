@@ -50,6 +50,13 @@ class AuthRepository {
             await this.apiClient.post("/auth/password/reset/complete", payload);
         });
         /**
+         * Checks current session by reading from storage
+         * (state management is handled by the auth machine)
+         */
+        this.checkSession = (0, errorHandler_1.withErrorHandling)(async () => {
+            return await this.readSession();
+        });
+        /**
          * Refreshes the access token using a refresh token.
          * NOTE: This method only refreshes the token, without fetching updated user profile.
          * Profile updates should be handled separately by the calling component/state machine.
@@ -74,30 +81,13 @@ class AuthRepository {
             await this.saveSession(refreshedSession);
             return refreshedSession;
         });
-        this.storage = storage;
-        const finalBaseURL = baseURL || "https://api.astra.example.com";
-        this.apiClient = axios_1.default.create({
-            baseURL: finalBaseURL,
-            headers: { "Content-Type": "application/json" },
-            timeout: 10000,
-        });
-        this.initializeInterceptors();
-    }
-    /**
-     * Checks current session by reading from storage
-     * (state management is handled by the auth machine)
-     */
-    async checkSession() {
-        return await this.readSession();
-    }
-    /**
-     * Refreshes the user profile data without requiring a token refresh.
-     */
-    async refreshProfile() {
-        const session = await this.readSession();
-        if (!session)
-            return null;
-        try {
+        /**
+         * Refreshes the user profile data without requiring a token refresh.
+         */
+        this.refreshProfile = (0, errorHandler_1.withErrorHandling)(async () => {
+            const session = await this.readSession();
+            if (!session)
+                return null;
             const response = await this.apiClient.get("/auth/me", {
                 headers: { Authorization: `Bearer ${session.accessToken}` },
             });
@@ -113,14 +103,18 @@ class AuthRepository {
             };
             await this.saveSession(updatedSession);
             return updatedSession;
-        }
-        catch {
-            // Return null on profile fetch failure
-            return null;
-        }
-    }
-    async logout() {
-        await this.storage.removeItem(STORAGE_KEY);
+        });
+        this.logout = (0, errorHandler_1.withErrorHandling)(async () => {
+            await this.storage.removeItem(STORAGE_KEY);
+        });
+        this.storage = storage;
+        const finalBaseURL = baseURL || "https://api.astra.example.com";
+        this.apiClient = axios_1.default.create({
+            baseURL: finalBaseURL,
+            headers: { "Content-Type": "application/json" },
+            timeout: 10000,
+        });
+        this.initializeInterceptors();
     }
     // --- Internals ---
     async saveSession(session) {

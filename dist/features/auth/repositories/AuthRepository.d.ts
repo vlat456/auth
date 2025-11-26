@@ -20,7 +20,7 @@ export declare class AuthRepository implements IAuthRepository {
      * Checks current session by reading from storage
      * (state management is handled by the auth machine)
      */
-    checkSession(): Promise<AuthSession | null>;
+    checkSession: () => Promise<AuthSession | null>;
     /**
      * Refreshes the access token using a refresh token.
      * NOTE: This method only refreshes the token, without fetching updated user profile.
@@ -30,8 +30,8 @@ export declare class AuthRepository implements IAuthRepository {
     /**
      * Refreshes the user profile data without requiring a token refresh.
      */
-    refreshProfile(): Promise<AuthSession | null>;
-    logout(): Promise<void>;
+    refreshProfile: () => Promise<AuthSession | null>;
+    logout: () => Promise<void>;
     private saveSession;
     private readSession;
     private processParsedSession;
