@@ -12,6 +12,15 @@ import {
 import type { ZodSchema } from "zod";
 
 /**
+ * Generic function to create a validation function based on a Zod schema
+ */
+export function createValidationFunction<T>(schema: ZodSchema<T>) {
+  return (payload: unknown): payload is T => {
+    return schema.safeParse(payload).success;
+  };
+}
+
+/**
  * Safely extract an error message from an XState error event.
  * Checks several possible locations where error messages may appear.
  */
@@ -171,29 +180,17 @@ export function safeGetStringFromContext(
 /**
  * Safely validate RegisterRequestDTO using Zod schema as single source of truth
  */
-export function isValidRegisterRequest(
-  payload: unknown
-): payload is { email: string; password: string } {
-  return RegisterRequestSchema.safeParse(payload).success;
-}
+export const isValidRegisterRequest = createValidationFunction(RegisterRequestSchema);
 
 /**
  * Safely validate RequestOtpDTO using Zod schema as single source of truth
  */
-export function isValidRequestOtp(
-  payload: unknown
-): payload is { email: string } {
-  return RequestOtpSchema.safeParse(payload).success;
-}
+export const isValidRequestOtp = createValidationFunction(RequestOtpSchema);
 
 /**
  * Safely validate VerifyOtpDTO using Zod schema as single source of truth
  */
-export function isValidVerifyOtp(
-  payload: unknown
-): payload is { email: string; otp: string } {
-  return VerifyOtpSchema.safeParse(payload).success;
-}
+export const isValidVerifyOtp = createValidationFunction(VerifyOtpSchema);
 
 /**
  * Safely extract and validate register payload from event
@@ -243,25 +240,17 @@ export function safeExtractSessionOutput(
 /**
  * Safely validate LoginRequestDTO using Zod schema as single source of truth
  */
-export function isValidLoginRequest(
-  payload: unknown
-): payload is LoginRequestDTO {
-  return LoginRequestSchema.safeParse(payload).success;
-}
+export const isValidLoginRequest = createValidationFunction(LoginRequestSchema);
 
 /**
  * Safely validate AuthSession using Zod schema as single source of truth
  */
-export function isAuthSession(obj: unknown): obj is AuthSession {
-  return AuthSessionSchema.safeParse(obj).success;
-}
+export const isAuthSession = createValidationFunction(AuthSessionSchema);
 
 /**
  * Safely validate UserProfile using Zod schema as single source of truth
  */
-export function isUserProfile(obj: unknown): obj is UserProfile {
-  return UserProfileSchema.safeParse(obj).success;
-}
+export const isUserProfile = createValidationFunction(UserProfileSchema);
 /**
  * Safely extract action token from context with validation
  */
