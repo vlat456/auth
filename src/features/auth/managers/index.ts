@@ -1,0 +1,1 @@
+export { ValidationManager, type ValidationResult } from './ValidationManager';

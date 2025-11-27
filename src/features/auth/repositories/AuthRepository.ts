@@ -15,7 +15,6 @@ import {
   AuthSession,
   ApiSuccessResponse,
   LoginResponseDTO,
-  RefreshRequestDTO,
   RefreshResponseData,
   UserProfile,
   IStorage,
@@ -23,12 +22,7 @@ import {
 import { withErrorHandling } from "../utils/errorHandler";
 import { Mutex } from "../utils/lockUtils";
 import { SessionManager } from "../utils/SessionManager";
-import {
-  LoginResponseSchemaWrapper,
-  RefreshResponseSchemaWrapper,
-  AuthSessionSchema,
-  UserProfileSchema,
-} from "../schemas/validationSchemas";
+import { ValidationManager } from "../managers/ValidationManager";
 
 const STORAGE_KEY = "user_session_token";
 
@@ -36,11 +30,13 @@ export class AuthRepository implements IAuthRepository {
   private apiClient: AxiosInstance;
   private storage: IStorage;
   private sessionManager: SessionManager;
+  private validationManager: ValidationManager;
   private refreshMutex = new Mutex(); // Prevents concurrent token refresh requests
 
   constructor(storage: IStorage, baseURL?: string) {
     this.storage = storage;
     this.sessionManager = new SessionManager({ storage });
+    this.validationManager = new ValidationManager();
 
     const finalBaseURL = baseURL || "https://api.astra.example.com";
 
@@ -62,11 +58,15 @@ export class AuthRepository implements IAuthRepository {
         ApiSuccessResponse<LoginResponseDTO>
       >("/auth/login", payload);
 
-      // Validate using direct Zod parsing
-      const validatedData = LoginResponseSchemaWrapper.parse(response.data);
+      // Validate using ValidationManager
+      const validation = this.validationManager.validateLoginResponse(response.data);
+      if (!validation.success || !validation.data) {
+        throw new Error(`Invalid login response: ${validation.error || 'Validation data is missing'}`);
+      }
+
       const session = this.sessionManager.createSession(
-        validatedData.data.accessToken,
-        validatedData.data.refreshToken
+        validation.data.data.accessToken,
+        validation.data.data.refreshToken
       );
 
       await this.sessionManager.saveSession(session);
@@ -131,11 +131,15 @@ export class AuthRepository implements IAuthRepository {
       try {
         const response = await this.apiClient.post<
           ApiSuccessResponse<RefreshResponseData>
-        >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
+        >("/auth/refresh-token", { refreshToken });
 
-        // Validate using direct Zod parsing
-        const validatedData = RefreshResponseSchemaWrapper.parse(response.data);
-        const newAccessToken = validatedData.data.accessToken;
+        // Validate using ValidationManager
+        const validation = this.validationManager.validateRefreshResponse(response.data);
+        if (!validation.success || !validation.data) {
+          throw new Error(`Invalid refresh response: ${validation.error || 'Validation data is missing'}`);
+        }
+
+        const newAccessToken = validation.data.data.accessToken;
 
         // Get the current session to preserve other data
         const currentSession = await this.sessionManager.readSession();
@@ -170,7 +174,8 @@ export class AuthRepository implements IAuthRepository {
     });
 
     const userData = response.data;
-    if (!this.sessionManager.validateProfile(userData)) {
+    const validation = this.validationManager.validateUserProfile(userData);
+    if (!validation.success) {
       return null;
     }
 
@@ -188,7 +193,7 @@ export class AuthRepository implements IAuthRepository {
   // --- Internals ---
 
   private isUserProfile(data: unknown): data is UserProfile {
-    return this.sessionManager.validateProfile(data);
+    return this.validationManager.validateUserProfile(data).success;
   }
 
   private initializeInterceptors() {
