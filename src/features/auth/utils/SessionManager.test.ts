@@ -100,6 +100,55 @@ describe("SessionManager", () => {
       expect(session).toBeNull();
     });
 
+    it("should handle session with invalid profile but valid access token (fallback path - valid profile)", async () => {
+      // This test covers the branch where the main validation fails but
+      // legacy validation passes with valid profile
+      await mockStorage.setItem(
+        "user_session_token",
+        JSON.stringify({
+          accessToken: "fallback-token",
+          refreshToken: "fallback-refresh",
+          profile: {
+            id: "user123",
+            email: "test@example.com"  // Valid but minimal profile that passes isUserProfile check
+          }
+        })
+      );
+      const session = await sessionManager.readSession();
+
+      // Should return the session with minimal profile since it passes isUserProfile validation
+      expect(session).toEqual({
+        accessToken: "fallback-token",
+        refreshToken: "fallback-refresh",
+        profile: {
+          id: "user123",
+          email: "test@example.com"
+        }
+      });
+    });
+
+    it("should handle session with invalid profile in fallback path (isUserProfile returns false)", async () => {
+      // This test covers the branch where isUserProfile returns false
+      await mockStorage.setItem(
+        "user_session_token",
+        JSON.stringify({
+          accessToken: "fallback-token",
+          refreshToken: "fallback-refresh",
+          profile: {
+            invalid: "profile"  // Invalid profile that fails isUserProfile check
+          }
+        })
+      );
+      const session = await sessionManager.readSession();
+
+      // Should return the session but with profile set to undefined since isUserProfile returns false
+      expect(session).toEqual({
+        accessToken: "fallback-token",
+        refreshToken: "fallback-refresh",
+        profile: undefined
+      });
+    });
+
     it("should handle session with invalid profile", async () => {
       const sessionWithInvalidProfile = {
         ...validSession,
