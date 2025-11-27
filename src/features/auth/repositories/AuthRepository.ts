@@ -223,49 +223,40 @@ export class AuthRepository implements IAuthRepository {
   }
 
   private processParsedSession(parsed: unknown): AuthSession | null {
-    // Use Zod to validate the parsed session object
+    // Use Zod to validate the parsed session object - primary validation
     try {
       return AuthSessionSchema.parse(parsed) as AuthSession;
     } catch (error) {
       console.warn(`Failed to parse session with strict validation: ${error}`);
 
-      // For backward compatibility with old stored data that might have empty tokens,
-      // we'll try a more permissive validation but only for the case where access token exists
-      if (typeof parsed === "object" && parsed !== null) {
-        const parsedObj = parsed as Record<string, unknown>;
+      // Fallback: Basic validation for backward compatibility
+      return this.tryLegacySessionParsing(parsed);
+    }
+  }
 
-        // Strict backward compatibility check: ensure only safe keys are present
-        if (
-          "accessToken" in parsedObj &&
-          typeof parsedObj.accessToken === "string" &&
-          Object.keys(parsedObj).length <= 4 // Only safe keys: accessToken, refreshToken, profile, and optionally one more
-        ) {
-          // Additional safety check: ensure no unexpected properties
-          const validKeys = ['accessToken', 'refreshToken', 'profile'];
-          const hasOnlyValidKeys = Object.keys(parsedObj).every(key =>
-            validKeys.includes(key) || key.startsWith('__') // Allow private/internal keys if needed
-          );
-
-          if (hasOnlyValidKeys) {
-            console.warn("Using legacy session format - migration recommended");
-            // Return a session with just the access token, setting others to undefined if missing
-            return {
-              accessToken: parsedObj.accessToken,
-              refreshToken:
-                typeof parsedObj.refreshToken === "string"
-                  ? parsedObj.refreshToken
-                  : undefined,
-              profile: this.isUserProfile(parsedObj.profile)
-                ? parsedObj.profile
-                : undefined,
-            };
-          }
-        }
-      }
-
+  private tryLegacySessionParsing(parsed: unknown): AuthSession | null {
+    // Only proceed if we have a valid object with at least an accessToken
+    if (typeof parsed !== "object" || parsed === null) {
       console.error(`Invalid session format in storage - clearing`);
       return null;
     }
+
+    const obj = parsed as Record<string, unknown>;
+
+    // Must have a string accessToken as minimum requirement
+    if (typeof obj.accessToken !== "string") {
+      console.error(`Invalid session format in storage - clearing`);
+      return null;
+    }
+
+    // Construct session with available properties
+    const session: AuthSession = {
+      accessToken: obj.accessToken,
+      refreshToken: typeof obj.refreshToken === "string" ? obj.refreshToken : undefined,
+      profile: this.isUserProfile(obj.profile) ? obj.profile : undefined,
+    };
+
+    return session;
   }
 
   private isUserProfile(data: unknown): data is UserProfile {
