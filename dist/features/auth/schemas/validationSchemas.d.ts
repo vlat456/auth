@@ -11,6 +11,11 @@
  * - Input sanitization using transform methods
  */
 import { z } from "zod";
+export declare const sanitizeInput: (input: string) => string;
+export declare const sanitizeEmail: (email: string) => string;
+export declare const sanitizePassword: (password: string) => string;
+export declare const sanitizeOtp: (otp: string) => string;
+export declare const sanitizeActionToken: (token: string) => string;
 export declare const EmailSchema: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
 export declare const PasswordSchema: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
 export declare const OtpSchema: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;

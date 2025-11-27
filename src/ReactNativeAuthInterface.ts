@@ -16,6 +16,7 @@ import {
   AuthSession,
   ChangePasswordRequestDTO,
   DeleteAccountRequestDTO,
+  AuthState,
 } from "./features/auth/types";
 import { AuthService } from "./features/auth/service/authService";
 import { AuthRepository } from "./features/auth/repositories/AuthRepository";
@@ -70,7 +71,7 @@ export class ReactNativeAuthInterface {
    * Complete password reset with new password
    */
   async completePasswordReset(
-    payload: CompletePasswordResetDTO
+    payload: CompletePasswordResetDTO,
   ): Promise<void> {
     return this.authService.completePasswordReset(payload);
   }
@@ -154,7 +155,7 @@ export class ReactNativeAuthInterface {
   /**
    * Get the current auth state value
    */
-  getAuthState(): string | object {
+  getAuthState(): AuthState {
     return this.authService.getState();
   }
 
@@ -162,8 +163,10 @@ export class ReactNativeAuthInterface {
    * Subscribe to auth state changes
    * Returns unsubscribe function
    */
-  subscribe(callback: (state: any) => void) {
-    return this.authService.subscribe(callback);
+  subscribe(callback: (state: AuthState) => void) {
+    return this.authService.subscribe((snapshot) => {
+      callback(snapshot.value as AuthState);
+    });
   }
 
   /**

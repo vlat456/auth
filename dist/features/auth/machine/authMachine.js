@@ -53,7 +53,7 @@ const createAuthMachine = (authRepository) => {
                     // Use the repository's refreshProfile method which fetches profile using the stored token
                     return await authRepository.refreshProfile();
                 }
-                catch (error) {
+                catch {
                     // If profile fetch fails, return the session without updated profile
                     return input.session;
                 }
@@ -64,8 +64,9 @@ const createAuthMachine = (authRepository) => {
                 session: ({ event }) => {
                     // Use type guard for done events that produce a session
                     if (event.type.includes("done.actor") &&
-                        "output" in event) {
-                        return event.output ?? null;
+                        "output" in event &&
+                        event.output) {
+                        return event.output;
                     }
                     return null;
                 },
@@ -73,8 +74,6 @@ const createAuthMachine = (authRepository) => {
             }),
             setError: (0, xstate_1.assign)({
                 error: ({ event }) => {
-                    // All xstate error events have the error property, but we can't assertEvent to all
-                    // since we don't know all possible error event types. Use type guard instead.
                     if ("error" in event &&
                         typeof event.error === "object" &&
                         event.error !== null &&
@@ -98,14 +97,17 @@ const createAuthMachine = (authRepository) => {
              */
             setRegistrationEmail: (0, xstate_1.assign)({
                 registration: ({ event }) => {
-                    const payload = event.payload || {};
-                    return {
-                        email: payload.email ?? "",
-                        pendingCredentials: {
+                    if (event.type === "REGISTER") {
+                        const payload = event.payload || {};
+                        return {
                             email: payload.email ?? "",
-                            password: payload.password ?? "",
-                        },
-                    };
+                            pendingCredentials: {
+                                email: payload.email ?? "",
+                                password: payload.password ?? "",
+                            },
+                        };
+                    }
+                    return undefined;
                 },
             }),
             /**
@@ -114,10 +116,13 @@ const createAuthMachine = (authRepository) => {
              */
             setPasswordResetEmail: (0, xstate_1.assign)({
                 passwordReset: ({ event }) => {
-                    const payload = event.payload || {};
-                    return {
-                        email: payload.email ?? "",
-                    };
+                    if (event.type === "FORGOT_PASSWORD") {
+                        const payload = event.payload || {};
+                        return {
+                            email: payload.email ?? "",
+                        };
+                    }
+                    return undefined;
                 },
             }),
             /**
@@ -138,52 +143,70 @@ const createAuthMachine = (authRepository) => {
              * Store registration action token in registration context only
              */
             setRegistrationActionToken: (0, xstate_1.assign)({
-                registration: ({ context, event }) => {
-                    // Get token from done event
-                    let token;
-                    if (event.type.includes("done.actor") &&
-                        "output" in event) {
+                registration: ({ context, event, }) => {
+                    if (typeof event === 'object' && event.type && event.type.includes("done.actor") && "output" in event) {
                         const output = event.output;
-                        token = typeof output === "string" ? output : undefined;
+                        const token = typeof output === "string" ? output : undefined;
+                        // Preserve existing registration context but update the actionToken
+                        if (context.registration) {
+                            return {
+                                email: context.registration.email, // Use existing email - required field
+                                actionToken: token,
+                                pendingCredentials: context.registration.pendingCredentials,
+                            };
+                        }
+                        else {
+                            // If there's no existing registration context, create a minimal one (though this shouldn't happen in normal flow)
+                            return {
+                                email: "", // Required field, though shouldn't occur in normal flow
+                                actionToken: token,
+                            };
+                        }
                     }
-                    // Merge with existing registration context
-                    return {
-                        ...context.registration,
-                        actionToken: token,
-                    };
+                    // If event is not a DoneActorEvent, return the current registration context unchanged
+                    return context.registration;
                 },
             }),
             /**
              * Store password reset action token in password reset context only
              */
             setPasswordResetActionToken: (0, xstate_1.assign)({
-                passwordReset: ({ context, event }) => {
-                    // Get token from done event
-                    let token;
-                    if (event.type.includes("done.actor") &&
-                        "output" in event) {
+                passwordReset: ({ context, event, }) => {
+                    if (typeof event === 'object' && event.type && event.type.includes("done.actor") && "output" in event) {
                         const output = event.output;
-                        token = typeof output === "string" ? output : undefined;
+                        const token = typeof output === "string" ? output : undefined;
+                        // Preserve existing password reset context but update the actionToken
+                        if (context.passwordReset) {
+                            return {
+                                email: context.passwordReset.email, // Use existing email - required field
+                                actionToken: token,
+                                pendingCredentials: context.passwordReset.pendingCredentials,
+                            };
+                        }
+                        else {
+                            // If there's no existing password reset context, create a minimal one (though this shouldn't happen in normal flow)
+                            return {
+                                email: "", // Required field, though shouldn't occur in normal flow
+                                actionToken: token,
+                            };
+                        }
                     }
-                    // Merge with existing password reset context
-                    return {
-                        ...context.passwordReset,
-                        actionToken: token,
-                    };
+                    // If event is not a DoneActorEvent, return the current password reset context unchanged
+                    return context.passwordReset;
                 },
             }),
             /**
              * Update pending credentials in registration flow when new password is set
              */
             setRegistrationPendingPassword: (0, xstate_1.assign)({
-                registration: ({ context, event }) => {
+                registration: ({ context, event, }) => {
                     if (event.type === "RESET_PASSWORD" && "payload" in event) {
                         const payload = event.payload;
                         if (payload &&
                             typeof payload === "object" &&
                             "newPassword" in payload) {
                             return {
-                                ...context.registration,
+                                email: context.registration?.email ?? "", // Ensure email is always set
                                 pendingCredentials: {
                                     email: context.registration?.email ?? "",
                                     password: payload.newPassword,
@@ -198,14 +221,14 @@ const createAuthMachine = (authRepository) => {
              * Update pending credentials in password reset flow when new password is set
              */
             setPasswordResetPendingPassword: (0, xstate_1.assign)({
-                passwordReset: ({ context, event }) => {
+                passwordReset: ({ context, event, }) => {
                     if (event.type === "RESET_PASSWORD" && "payload" in event) {
                         const payload = event.payload;
                         if (payload &&
                             typeof payload === "object" &&
                             "newPassword" in payload) {
                             return {
-                                ...context.passwordReset,
+                                email: context.passwordReset?.email ?? "", // Ensure email is always set
                                 pendingCredentials: {
                                     email: context.passwordReset?.email ?? "",
                                     password: payload.newPassword,
@@ -248,9 +271,11 @@ const createAuthMachine = (authRepository) => {
                 invoke: {
                     src: "validateSessionWithServer",
                     input: ({ context }) => ({ session: context.session }),
-                    onDone: {
-                        target: "fetchingProfileAfterValidation",
-                    },
+                    onDone: [
+                        {
+                            target: "fetchingProfileAfterValidation",
+                        }
+                    ],
                     onError: {
                         target: "refreshingToken", // If validation fails, try to refresh
                     },
@@ -260,21 +285,28 @@ const createAuthMachine = (authRepository) => {
                 invoke: {
                     src: "validateSessionWithServer", // This will fetch the profile
                     input: ({ context }) => ({ session: context.session }),
-                    onDone: {
-                        target: "authorized",
-                        actions: [
-                            (0, xstate_1.assign)({
-                                session: ({ event }) => event.output,
-                            }),
-                        ],
-                    },
+                    onDone: [
+                        {
+                            target: "authorized",
+                            actions: [
+                                (0, xstate_1.assign)({
+                                    session: ({ event, }) => {
+                                        if (typeof event === 'object' && event.type && event.type.includes("done.actor") && "output" in event) {
+                                            return event.output;
+                                        }
+                                        return null;
+                                    },
+                                }),
+                            ],
+                        }
+                    ],
                     onError: {
                         target: "authorized", // If profile fetch fails, still go to authorized with existing session
                         actions: [
                             (0, xstate_1.assign)({
                                 session: ({ context }) => {
                                     // Use the session from the context if profile fetch fails
-                                    return context.session || null;
+                                    return context.session;
                                 },
                             }),
                         ],
@@ -291,14 +323,21 @@ const createAuthMachine = (authRepository) => {
                     input: ({ context }) => ({
                         refreshToken: context.session?.refreshToken || "",
                     }),
-                    onDone: {
-                        target: "fetchingProfileAfterRefresh",
-                        actions: [
-                            (0, xstate_1.assign)({
-                                session: ({ event }) => event.output,
-                            }),
-                        ],
-                    },
+                    onDone: [
+                        {
+                            target: "fetchingProfileAfterRefresh",
+                            actions: [
+                                (0, xstate_1.assign)({
+                                    session: ({ event, }) => {
+                                        if (typeof event === 'object' && event.type && event.type.includes("done.actor") && "output" in event) {
+                                            return event.output;
+                                        }
+                                        return null;
+                                    },
+                                }),
+                            ],
+                        }
+                    ],
                     onError: {
                         target: "unauthorized", // Go to unauthenticated state if refresh fails
                         actions: [
@@ -314,21 +353,28 @@ const createAuthMachine = (authRepository) => {
                 invoke: {
                     src: "validateSessionWithServer",
                     input: ({ context }) => ({ session: context.session }),
-                    onDone: {
-                        target: "authorized",
-                        actions: [
-                            (0, xstate_1.assign)({
-                                session: ({ event }) => event.output,
-                            }),
-                        ],
-                    },
+                    onDone: [
+                        {
+                            target: "authorized",
+                            actions: [
+                                (0, xstate_1.assign)({
+                                    session: ({ event, }) => {
+                                        if (typeof event === 'object' && event.type && event.type.includes("done.actor") && "output" in event) {
+                                            return event.output;
+                                        }
+                                        return null;
+                                    },
+                                }),
+                            ],
+                        }
+                    ],
                     onError: {
                         target: "authorized", // If profile fetch fails, still go to authorized with existing session
                         actions: [
                             (0, xstate_1.assign)({
                                 session: ({ context }) => {
                                     // Use the session from the context if profile fetch fails
-                                    return context.session || null;
+                                    return context.session;
                                 },
                             }),
                         ],
@@ -410,17 +456,11 @@ const createAuthMachine = (authRepository) => {
                             },
                             onDone: {
                                 target: "#auth.authorized",
-                                actions: [
-                                    "setSession",
-                                    "clearRegistrationContext",
-                                ],
+                                actions: ["setSession", "clearRegistrationContext"],
                             },
                             onError: {
                                 target: "login",
-                                actions: [
-                                    "setError",
-                                    "clearRegistrationContext",
-                                ],
+                                actions: ["setError", "clearRegistrationContext"],
                             },
                         },
                     },
@@ -437,10 +477,7 @@ const createAuthMachine = (authRepository) => {
                                 on: {
                                     REGISTER: {
                                         target: "submitting",
-                                        actions: [
-                                            "clearError",
-                                            "setRegistrationEmail",
-                                        ],
+                                        actions: ["clearError", "setRegistrationEmail"],
                                     },
                                 },
                             },
@@ -525,17 +562,11 @@ const createAuthMachine = (authRepository) => {
                                     },
                                     onDone: {
                                         target: "#auth.authorized",
-                                        actions: [
-                                            "setSession",
-                                            "clearRegistrationContext",
-                                        ],
+                                        actions: ["setSession", "clearRegistrationContext"],
                                     },
                                     onError: {
                                         target: "#auth.unauthorized.login",
-                                        actions: [
-                                            "setError",
-                                            "clearRegistrationContext",
-                                        ],
+                                        actions: ["setError", "clearRegistrationContext"],
                                     },
                                 },
                             },
@@ -645,17 +676,11 @@ const createAuthMachine = (authRepository) => {
                                     },
                                     onDone: {
                                         target: "#auth.authorized",
-                                        actions: [
-                                            "setSession",
-                                            "clearPasswordResetContext",
-                                        ],
+                                        actions: ["setSession", "clearPasswordResetContext"],
                                     },
                                     onError: {
                                         target: "#auth.unauthorized.login",
-                                        actions: [
-                                            "setError",
-                                            "clearPasswordResetContext",
-                                        ],
+                                        actions: ["setError", "clearPasswordResetContext"],
                                     },
                                 },
                             },

@@ -644,7 +644,10 @@ describe("Auth Machine Integration Tests", () => {
             });
             await p2;
             // Clear email context to test guard
-            actor.getSnapshot().context.email = undefined;
+            const regCtx = actor.getSnapshot().context;
+            if (regCtx.registration) {
+                regCtx.registration.email = undefined;
+            }
             // Attempt OTP verification - should be blocked by guard
             actor.send({
                 type: "VERIFY_OTP",
@@ -656,7 +659,10 @@ describe("Auth Machine Integration Tests", () => {
                 unauthorized: { register: "verifyOtp" },
             });
             // Now set email and try again
-            actor.getSnapshot().context.email = "newuser@test.com";
+            const regCtx2 = actor.getSnapshot().context;
+            if (regCtx2.registration) {
+                regCtx2.registration.email = "newuser@test.com";
+            }
             mockRepo.errors.push({
                 method: "verifyOtp",
                 error: new Error("OTP expired"),
@@ -694,7 +700,10 @@ describe("Auth Machine Integration Tests", () => {
             });
             await p3;
             // Clear action token to test guard
-            actor.getSnapshot().context.resetActionToken = undefined;
+            const pwdCtx = actor.getSnapshot().context;
+            if (pwdCtx.passwordReset) {
+                pwdCtx.passwordReset.actionToken = undefined;
+            }
             // Attempt reset password - should be blocked by guard
             actor.send({
                 type: "RESET_PASSWORD",

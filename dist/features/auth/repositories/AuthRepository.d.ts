@@ -6,6 +6,8 @@ import { IAuthRepository, LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, Ve
 export declare class AuthRepository implements IAuthRepository {
     private apiClient;
     private storage;
+    private storageMutex;
+    private refreshMutex;
     constructor(storage: IStorage, baseURL?: string);
     /**
      * Authenticates a user by email and password.
@@ -25,6 +27,11 @@ export declare class AuthRepository implements IAuthRepository {
      * Refreshes the access token using a refresh token.
      * NOTE: This method only refreshes the token, without fetching updated user profile.
      * Profile updates should be handled separately by the calling component/state machine.
+     *
+     * Uses a mutex to prevent concurrent refresh requests:
+     * - If refresh already in progress, waits for that one to complete
+     * - Prevents multiple concurrent API calls to refresh endpoint
+     * - Ensures only one new token is issued per refresh cycle
      */
     refresh: (refreshToken: string) => Promise<AuthSession>;
     /**

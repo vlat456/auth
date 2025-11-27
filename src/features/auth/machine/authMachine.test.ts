@@ -126,7 +126,7 @@ describe("Auth Machine", () => {
       const p1 = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { login: "idle" } }) &&
+          stateMatches(s, { unauthorized: { login: "idle" } }) &&
           s.context.error !== null
       );
       actor.send({
@@ -148,7 +148,7 @@ describe("Auth Machine", () => {
       const p1 = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { login: "idle" } }) &&
+          stateMatches(s, { unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({
@@ -175,13 +175,13 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toRegister = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
 
       const toVerifyOtp = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { register: "verifyOtp" } })
       );
       actor.send({
         type: "REGISTER",
@@ -227,13 +227,13 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toRegister = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
 
       const toVerifyOtp = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { register: "verifyOtp" } })
       );
       actor.send({
         type: "REGISTER",
@@ -250,7 +250,7 @@ describe("Auth Machine", () => {
       const backToLogin = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: "login" }) && s.context.error !== null
+          stateMatches(s, { unauthorized: "login" }) && s.context.error !== null
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "654321" } });
       await backToLogin;
@@ -273,14 +273,14 @@ describe("Auth Machine", () => {
 
       // 1. Go to register screen
       const p1 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await p1;
 
       // 2. Send the register event that will fail
       const backToForm = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({
         type: "REGISTER",
@@ -290,7 +290,7 @@ describe("Auth Machine", () => {
 
       const snapshot = actor.getSnapshot();
       expect(snapshot.context.error?.message).toBe("Exists");
-      expect(snapshot["matches"]({ unauthorized: { register: "form" } })).toBe(
+      expect(stateMatches(snapshot, { unauthorized: { register: "form" } })).toBe(
         true
       );
     });
@@ -302,7 +302,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toForm = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toForm;
@@ -310,7 +310,7 @@ describe("Auth Machine", () => {
       const backToForm = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { register: "form" } }) &&
+          stateMatches(s, { unauthorized: { register: "form" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -325,7 +325,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -334,7 +334,7 @@ describe("Auth Machine", () => {
       const pErr = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { register: "verifyOtp" } }) &&
+          stateMatches(s, { unauthorized: { register: "verifyOtp" } }) &&
           s.context.error !== null
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "000000" } });
@@ -351,7 +351,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -367,9 +367,7 @@ describe("Auth Machine", () => {
       await Promise.resolve();
 
       expect(
-        actor
-          .getSnapshot()
-          ["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(actor.getSnapshot(), { unauthorized: { register: "verifyOtp" } })
       ).toBe(true);
       expect(mockRepo.verifyOtp).not.toHaveBeenCalled();
     });
@@ -384,7 +382,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { register: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       actor.send({ type: "REGISTER", payload: { email: "a", password: "b" } });
@@ -398,7 +396,7 @@ describe("Auth Machine", () => {
       };
 
       const backToLogin = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: "login" })
+        stateMatches(s, { unauthorized: "login" })
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await backToLogin;
@@ -424,7 +422,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const p1 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
@@ -432,7 +430,7 @@ describe("Auth Machine", () => {
       const p2 = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { forgotPassword: "idle" } }) &&
+          stateMatches(s, { unauthorized: { forgotPassword: "idle" } }) &&
           s.context.error !== null
       );
       actor.send({
@@ -456,13 +454,13 @@ describe("Auth Machine", () => {
 
       // 1. Go to forgot password and submit email successfully
       const p1 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({
         type: "FORGOT_PASSWORD",
@@ -474,7 +472,7 @@ describe("Auth Machine", () => {
       const p3 = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } }) &&
+          stateMatches(s, { unauthorized: { forgotPassword: "verifyOtp" } }) &&
           s.context.error !== null
       );
       actor.send({
@@ -501,13 +499,13 @@ describe("Auth Machine", () => {
 
       // 1. Go to forgot password and submit email
       const p1 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "idle" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "idle" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({
         type: "FORGOT_PASSWORD",
@@ -518,7 +516,7 @@ describe("Auth Machine", () => {
 
       // 2. Submit OTP
       const p3 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "resetPassword" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "resetPassword" } })
       );
       actor.send({
         type: "VERIFY_OTP",
@@ -529,7 +527,7 @@ describe("Auth Machine", () => {
 
       // 3. Submit new password
       const p4 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "resettingPassword" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "resettingPassword" } })
       );
       actor.send({
         type: "RESET_PASSWORD",
@@ -560,7 +558,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       actor.send({
@@ -593,7 +591,7 @@ describe("Auth Machine", () => {
       await waitForState(actor, (s) => s["matches"]("unauthorized"));
 
       const toVerify = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "verifyOtp" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "verifyOtp" } })
       );
       actor.send({ type: "GO_TO_FORGOT_PASSWORD" });
       actor.send({
@@ -603,7 +601,7 @@ describe("Auth Machine", () => {
       await toVerify;
 
       const toReset = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { forgotPassword: "resetPassword" } })
+        stateMatches(s, { unauthorized: { forgotPassword: "resetPassword" } })
       );
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
       await toReset;
@@ -632,16 +630,16 @@ describe("Auth Machine", () => {
     it("should navigate between sub-states", async () => {
       (mockRepo.checkSession as jest.Mock).mockResolvedValue(null);
       const actor = createTestActor();
-      await waitForState(actor, (s) => s["matches"]({ unauthorized: "login" }));
+      await waitForState(actor, (s) => stateMatches(s, { unauthorized: "login" }));
 
       const p1 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: "register" })
+        stateMatches(s, { unauthorized: "register" })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await p1;
 
       const p2 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: "login" })
+        stateMatches(s, { unauthorized: "login" })
       );
       actor.send({ type: "GO_TO_LOGIN" });
       await p2;
@@ -691,7 +689,7 @@ describe("Auth Machine", () => {
       const p1 = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { login: "idle" } }) &&
+          stateMatches(s, { unauthorized: { login: "idle" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({
@@ -714,7 +712,7 @@ describe("Auth Machine", () => {
 
       // Navigate to register
       const toRegister = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "form" } })
+        stateMatches(s, { unauthorized: { register: "form" } })
       );
       actor.send({ type: "GO_TO_REGISTER" });
       await toRegister;
@@ -723,7 +721,7 @@ describe("Auth Machine", () => {
       const backToForm = waitForState(
         actor,
         (s) =>
-          s["matches"]({ unauthorized: { register: "form" } }) &&
+          stateMatches(s, { unauthorized: { register: "form" } }) &&
           s.context.error?.message === "An unexpected error occurred"
       );
       actor.send({

@@ -1,11 +1,17 @@
 /**
  * React Native Authentication Interface
- * Provides a simple interface to access auth functions from React Native
+ *
+ * This is the public API for authentication in React Native apps.
+ * All interactions go through AuthService - the machine is completely hidden.
  */
-import { LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, AuthSession, ChangePasswordRequestDTO, DeleteAccountRequestDTO } from "./features/auth/types";
+import { LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, AuthSession, ChangePasswordRequestDTO, DeleteAccountRequestDTO, AuthState } from "./features/auth/types";
 export declare class ReactNativeAuthInterface {
     private authService;
     constructor(apiBaseURL?: string);
+    /**
+     * Check and restore session on app startup
+     */
+    checkSession(): Promise<AuthSession | null>;
     /**
      * Login with email and password
      */
@@ -15,7 +21,7 @@ export declare class ReactNativeAuthInterface {
      */
     register(payload: RegisterRequestDTO): Promise<void>;
     /**
-     * Request password reset (sends OTP)
+     * Request password reset (sends OTP to email)
      */
     requestPasswordReset(payload: RequestOtpDTO): Promise<void>;
     /**
@@ -23,25 +29,21 @@ export declare class ReactNativeAuthInterface {
      */
     verifyOtp(payload: VerifyOtpDTO): Promise<string>;
     /**
-     * Complete password reset
+     * Complete password reset with new password
      */
     completePasswordReset(payload: CompletePasswordResetDTO): Promise<void>;
     /**
-     * Complete registration with action token and new password
+     * Complete registration with action token and password
      */
     completeRegistration(payload: CompleteRegistrationDTO): Promise<void>;
-    /**
-     * Check current session (validates and refreshes if needed)
-     */
-    checkSession(): Promise<AuthSession | null>;
-    /**
-     * Logout the current user
-     */
-    logout(): Promise<void>;
     /**
      * Refresh session using refresh token
      */
     refresh(): Promise<AuthSession | null>;
+    /**
+     * Logout the current user
+     */
+    logout(): Promise<void>;
     /**
      * Change user password
      */
@@ -51,11 +53,48 @@ export declare class ReactNativeAuthInterface {
      */
     deleteAccount(_payload: DeleteAccountRequestDTO): Promise<void>;
     /**
-     * Get the current session without validation
+     * Get the current session without waiting for validation
      */
     getCurrentSession(): AuthSession | null;
     /**
-     * Get the current auth state
+     * Check if user is currently logged in
      */
-    getAuthState(): string | object;
+    isLoggedIn(): boolean;
+    /**
+     * Check if currently processing a request
+     */
+    isLoading(): boolean;
+    /**
+     * Check if there's a current error
+     */
+    hasError(): boolean;
+    /**
+     * Get the current error, if any
+     */
+    getError(): import("./features/auth/types").AuthError | null;
+    /**
+     * Get the current auth state value
+     */
+    getAuthState(): AuthState;
+    /**
+     * Subscribe to auth state changes
+     * Returns unsubscribe function
+     */
+    subscribe(callback: (state: AuthState) => void): () => void;
+    /**
+     * Navigate to login flow
+     */
+    goToLogin(): void;
+    /**
+     * Navigate to registration flow
+     */
+    goToRegister(): void;
+    /**
+     * Navigate to password reset flow
+     */
+    goToForgotPassword(): void;
+    /**
+     * Cancel current operation
+     */
+    cancel(): void;
 }

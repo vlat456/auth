@@ -20,7 +20,9 @@ class MockAuthRepository implements IAuthRepository {
   // Mock data
   private session: AuthSession | null = null;
   private tokens: { [key: string]: boolean } = {};
+  private tokenEmailMap: { [key: string]: string } = {}; // Map tokens to emails for password reset
   private registeredUsers: { [email: string]: boolean } = {};
+  private userPasswords: { [email: string]: string } = {}; // Track user passwords for login after password reset
 
   // Reset method for clean test state
   reset() {
@@ -28,7 +30,9 @@ class MockAuthRepository implements IAuthRepository {
     this.errors = [];
     this.session = null;
     this.tokens = {};
+    this.tokenEmailMap = {};
     this.registeredUsers = {};
+    this.userPasswords = {};
   }
 
   async login(payload: {
@@ -44,6 +48,20 @@ class MockAuthRepository implements IAuthRepository {
         throw undefined;
       }
       throw loginError.error || new Error("Login error");
+    }
+
+    // For integration tests, we allow login to succeed but verify credentials properly
+    // If a password has been stored (from registration or password reset), verify it
+    const storedPassword = this.userPasswords[payload.email];
+    if (storedPassword && storedPassword !== payload.password) {
+      throw new Error("Invalid credentials");
+    }
+
+    // If no stored password, we still allow login (original behavior) but track the credentials
+    if (!storedPassword) {
+      // For new users that haven't been through registration, just allow login
+      // and record their credentials for future validation
+      this.userPasswords[payload.email] = payload.password;
     }
 
     // Simulate successful login
@@ -63,6 +81,7 @@ class MockAuthRepository implements IAuthRepository {
     }
 
     this.registeredUsers[payload.email] = true;
+    this.userPasswords[payload.email] = payload.password; // Store the password for login
   }
 
   async requestPasswordReset(payload: { email: string }): Promise<void> {
@@ -90,6 +109,7 @@ class MockAuthRepository implements IAuthRepository {
       "_"
     )}_${Date.now()}`;
     this.tokens[actionToken] = true;
+    this.tokenEmailMap[actionToken] = payload.email; // Map the token to the email
     return actionToken;
   }
 
@@ -112,6 +132,14 @@ class MockAuthRepository implements IAuthRepository {
 
     // Mark token as used
     delete this.tokens[payload.actionToken];
+
+    // For registration completion, update the user's password
+    const email = this.tokenEmailMap[payload.actionToken];
+    if (email) {
+      this.userPasswords[email] = payload.newPassword; // Update the user's password
+      this.registeredUsers[email] = true; // Ensure the user is registered
+      delete this.tokenEmailMap[payload.actionToken]; // Clean up the mapping
+    }
   }
 
   async completePasswordReset(payload: {
@@ -133,6 +161,13 @@ class MockAuthRepository implements IAuthRepository {
 
     // Mark token as used
     delete this.tokens[payload.actionToken];
+
+    // Update the user's password based on the token-email mapping
+    const email = this.tokenEmailMap[payload.actionToken];
+    if (email) {
+      this.userPasswords[email] = payload.newPassword; // Update the user's password
+      delete this.tokenEmailMap[payload.actionToken]; // Clean up the mapping
+    }
   }
 
   async checkSession(): Promise<AuthSession | null> {

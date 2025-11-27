@@ -1,4 +1,4 @@
 /**
- * Tests for validation schemas
+ * Tests for validation schemas with comprehensive branch coverage
  */
 export {};

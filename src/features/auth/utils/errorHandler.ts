@@ -40,7 +40,7 @@ export class ApiError extends Error {
  */
 export function handleApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError;
+    const axiosError = error as AxiosError<unknown>;
     const response = axiosError.response;
 
     // Extract status code and response data
@@ -73,11 +73,7 @@ export function handleApiError(error: unknown): never {
         case 502:
         case 503:
         case 504:
-          userMessage = messageField ||
-            (errorField &&
-              (errorField.toLowerCase().includes('internal') || errorField.toLowerCase().includes('error'))
-              ? ErrorMessages[AuthErrorCode.SERVER_ERROR]
-              : ErrorMessages[AuthErrorCode.SERVER_ERROR]);
+          userMessage = messageField || ErrorMessages[AuthErrorCode.SERVER_ERROR];
           break;
         default:
           userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.GENERAL_ERROR];
@@ -134,10 +130,20 @@ export function withErrorHandling<T extends (...args: any[]) => any>(fn: T): T {
     try {
       const result = fn(...args);
       if (result instanceof Promise) {
-        return result.catch(handleApiError) as ReturnType<T>;
+        return result.catch((error) => {
+          // Preserve the original stack trace before handling
+          if (error instanceof Error && error.stack) {
+            Error.captureStackTrace(error, fn);
+          }
+          return handleApiError(error);
+        }) as ReturnType<T>;
       }
       return result;
     } catch (error) {
+      // Preserve the original stack trace before handling
+      if (error instanceof Error && error.stack) {
+        Error.captureStackTrace(error, fn);
+      }
       handleApiError(error);
     }
   }) as T;

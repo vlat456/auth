@@ -226,28 +226,44 @@ export class AuthRepository implements IAuthRepository {
     // Use Zod to validate the parsed session object
     try {
       return AuthSessionSchema.parse(parsed) as AuthSession;
-    } catch {
+    } catch (error) {
+      console.warn(`Failed to parse session with strict validation: ${error}`);
+
       // For backward compatibility with old stored data that might have empty tokens,
       // we'll try a more permissive validation but only for the case where access token exists
       if (typeof parsed === "object" && parsed !== null) {
         const parsedObj = parsed as Record<string, unknown>;
+
+        // Strict backward compatibility check: ensure only safe keys are present
         if (
           "accessToken" in parsedObj &&
-          typeof parsedObj.accessToken === "string"
+          typeof parsedObj.accessToken === "string" &&
+          Object.keys(parsedObj).length <= 4 // Only safe keys: accessToken, refreshToken, profile, and optionally one more
         ) {
-          // Return a session with just the access token, setting others to undefined if missing
-          return {
-            accessToken: parsedObj.accessToken,
-            refreshToken:
-              typeof parsedObj.refreshToken === "string"
-                ? parsedObj.refreshToken
+          // Additional safety check: ensure no unexpected properties
+          const validKeys = ['accessToken', 'refreshToken', 'profile'];
+          const hasOnlyValidKeys = Object.keys(parsedObj).every(key =>
+            validKeys.includes(key) || key.startsWith('__') // Allow private/internal keys if needed
+          );
+
+          if (hasOnlyValidKeys) {
+            console.warn("Using legacy session format - migration recommended");
+            // Return a session with just the access token, setting others to undefined if missing
+            return {
+              accessToken: parsedObj.accessToken,
+              refreshToken:
+                typeof parsedObj.refreshToken === "string"
+                  ? parsedObj.refreshToken
+                  : undefined,
+              profile: this.isUserProfile(parsedObj.profile)
+                ? parsedObj.profile
                 : undefined,
-            profile: this.isUserProfile(parsedObj.profile)
-              ? parsedObj.profile
-              : undefined,
-          };
+            };
+          }
         }
       }
+
+      console.error(`Invalid session format in storage - clearing`);
       return null;
     }
   }

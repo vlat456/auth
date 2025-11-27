@@ -20,6 +20,7 @@ import {
   VerifyOtpDTO,
   CompleteRegistrationDTO,
   CompletePasswordResetDTO,
+  AuthState,
 } from "../types";
 import { AuthContext, AuthEvent } from "../machine/authMachine";
 import {
@@ -113,16 +114,20 @@ export class AuthService {
    * Get the current authentication state value
    * (e.g., 'authorized', 'unauthorized', { unauthorized: { login: 'idle' } })
    */
-  getState(): string | object {
-    return this.actor.getSnapshot().value;
+  getState(): AuthState {
+    return this.actor.getSnapshot().value as AuthState;
   }
 
   /**
    * Check if in a specific state
+   *
+   * @param pattern - The state pattern to match.
+   * Common patterns are provided in AuthState type, but XState accepts complex nested patterns.
    */
-  matches(pattern: string | object): boolean {
-    // Type casting needed for string patterns
-    return (this.actor.getSnapshot().matches as any)(pattern);
+  matches(pattern: AuthState | string): boolean {
+    // XState's matches function is flexible with complex nested patterns
+    // The type is restrictive for common usage but allows escape hatch with string
+    return this.actor.getSnapshot().matches(pattern as any);
   }
 
   /**

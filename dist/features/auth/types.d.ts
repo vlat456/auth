@@ -89,3 +89,26 @@ export interface IAuthRepository {
     refreshProfile(): Promise<AuthSession | null>;
     logout(): Promise<void>;
 }
+/**
+ * Represents the possible states of the authentication machine
+ */
+export type AuthState = "checkingSession" | "validatingSession" | "fetchingProfileAfterValidation" | "refreshingToken" | "fetchingProfileAfterRefresh" | "loggingOut" | "authorized" | "unauthorized" | {
+    unauthorized: "completeRegistrationProcess" | "loggingInAfterCompletion" | "verifyingOtp" | "completingRegistration" | "loggingIn" | "loggingInAfterReset";
+} | {
+    unauthorized: {
+        login: "idle" | "submitting" | "success" | "error";
+    };
+} | {
+    unauthorized: {
+        register: "form" | "submitting" | "verifyOtp" | "verifyingOtp" | "completingRegistration" | "loggingIn" | "error";
+    };
+} | {
+    unauthorized: {
+        forgotPassword: "idle" | "submitting" | "verifyOtp" | "verifyingOtp" | "resetPassword" | "resettingPassword" | "loggingInAfterReset" | "error";
+    };
+};
+export type DoneActorEvent<T = void> = {
+    type: `xstate.done.actor.${string}`;
+    output: T;
+    actorId?: string;
+};

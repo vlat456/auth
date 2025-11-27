@@ -12,7 +12,7 @@
  * - Input sanitization using transform methods
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ApiErrorResponseSchema = exports.RefreshResponseSchemaWrapper = exports.LoginResponseSchemaWrapper = exports.ApiSuccessResponseSchema = exports.AuthSessionSchema = exports.UserProfileSchema = exports.RefreshResponseDataSchema = exports.LoginResponseSchema = exports.RefreshRequestSchema = exports.DeleteAccountRequestSchema = exports.ChangePasswordRequestSchema = exports.CompletePasswordResetSchema = exports.CompleteRegistrationSchema = exports.VerifyOtpSchema = exports.RequestOtpSchema = exports.RegisterRequestSchema = exports.LoginRequestSchema = exports.ActionTokenSchema = exports.OtpSchema = exports.PasswordSchema = exports.EmailSchema = void 0;
+exports.ApiErrorResponseSchema = exports.RefreshResponseSchemaWrapper = exports.LoginResponseSchemaWrapper = exports.ApiSuccessResponseSchema = exports.AuthSessionSchema = exports.UserProfileSchema = exports.RefreshResponseDataSchema = exports.LoginResponseSchema = exports.RefreshRequestSchema = exports.DeleteAccountRequestSchema = exports.ChangePasswordRequestSchema = exports.CompletePasswordResetSchema = exports.CompleteRegistrationSchema = exports.VerifyOtpSchema = exports.RequestOtpSchema = exports.RegisterRequestSchema = exports.LoginRequestSchema = exports.ActionTokenSchema = exports.OtpSchema = exports.PasswordSchema = exports.EmailSchema = exports.sanitizeActionToken = exports.sanitizeOtp = exports.sanitizePassword = exports.sanitizeEmail = exports.sanitizeInput = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Sanitization helpers
@@ -30,6 +30,7 @@ const sanitizeInput = (input) => {
         .replace(/\//g, "&#x2F;") // Prevent closing tags
         .trim(); // Remove leading/trailing whitespace
 };
+exports.sanitizeInput = sanitizeInput;
 const sanitizeEmail = (email) => {
     if (typeof email !== "string") {
         return "";
@@ -38,6 +39,7 @@ const sanitizeEmail = (email) => {
     // For now, we implement basic normalization
     return email.toLowerCase().trim().substring(0, 254);
 };
+exports.sanitizeEmail = sanitizeEmail;
 const sanitizePassword = (password) => {
     if (typeof password !== "string") {
         return "";
@@ -46,6 +48,7 @@ const sanitizePassword = (password) => {
     // Just remove potentially dangerous characters
     return password.replace(/['"]/g, "");
 };
+exports.sanitizePassword = sanitizePassword;
 const sanitizeOtp = (otp) => {
     if (typeof otp !== "string") {
         return "";
@@ -54,6 +57,7 @@ const sanitizeOtp = (otp) => {
     const digitsOnly = otp.replace(/\D/g, "").substring(0, 10);
     return digitsOnly;
 };
+exports.sanitizeOtp = sanitizeOtp;
 const sanitizeActionToken = (token) => {
     if (typeof token !== "string") {
         return "";
@@ -61,6 +65,7 @@ const sanitizeActionToken = (token) => {
     // Remove potential dangerous characters but keep token format
     return token.replace(/['"<>]/g, "").trim();
 };
+exports.sanitizeActionToken = sanitizeActionToken;
 // ============================================================================
 // Primitive Schemas with sanitization
 // ============================================================================
@@ -69,24 +74,24 @@ const UnsanitizedEmailSchema = zod_1.z
     .min(1, "Email is required")
     .max(254, "Email is too long") // Standard email max length
     .email("Invalid email format");
-exports.EmailSchema = UnsanitizedEmailSchema.transform(sanitizeEmail);
+exports.EmailSchema = UnsanitizedEmailSchema.transform(exports.sanitizeEmail);
 const UnsanitizedPasswordSchema = zod_1.z
     .string()
     .min(1, "Password is required")
     .min(8, "Password must be at least 8 characters")
     .max(128, "Password is too long"); // Reasonable max length
-exports.PasswordSchema = UnsanitizedPasswordSchema.transform(sanitizePassword);
+exports.PasswordSchema = UnsanitizedPasswordSchema.transform(exports.sanitizePassword);
 const UnsanitizedOtpSchema = zod_1.z
     .string()
     .max(10, "OTP is too long") // Additional safety limit
     .regex(/^\d{4,6}$/, "OTP must be a 4-6 digit code");
-exports.OtpSchema = UnsanitizedOtpSchema.transform(sanitizeOtp);
+exports.OtpSchema = UnsanitizedOtpSchema.transform(exports.sanitizeOtp);
 const UnsanitizedActionTokenSchema = zod_1.z
     .string()
     .min(1, "Action token is required")
     .min(20, "Invalid action token format")
     .max(512, "Action token is too long"); // Reasonable max length for tokens
-exports.ActionTokenSchema = UnsanitizedActionTokenSchema.transform(sanitizeActionToken);
+exports.ActionTokenSchema = UnsanitizedActionTokenSchema.transform(exports.sanitizeActionToken);
 // ============================================================================
 // DTO Schemas
 // ============================================================================

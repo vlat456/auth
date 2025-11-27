@@ -2,7 +2,7 @@
  * Path: src/features/auth/machine/authMachine.ts
  * Version: 0.2.0
  */
-import { AuthSession, AuthError, LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, IAuthRepository } from "../types";
+import { AuthSession, AuthError, LoginRequestDTO, RegisterRequestDTO, RequestOtpDTO, VerifyOtpDTO, CompleteRegistrationDTO, CompletePasswordResetDTO, IAuthRepository, DoneActorEvent } from "../types";
 /**
  * Registration flow context - isolated to prevent state pollution
  * Automatically cleared when entering other flows
@@ -78,11 +78,6 @@ export type AuthEvent = {
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
 };
-type DoneActorEvent<T = void> = {
-    type: `xstate.done.actor.${string}`;
-    output: T;
-    actorId?: string;
-};
 type ErrorActorEvent = {
     type: `xstate.error.actor.${string}`;
     error: Error | unknown;
@@ -126,15 +121,20 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     type: "GO_TO_LOGIN";
 } | {
     type: "GO_TO_FORGOT_PASSWORD";
-} | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, {
-    [x: string]: import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, {
+}, {
+    [x: string]: import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, {
         refreshToken: string;
     }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
         session?: AuthSession;
-    }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
+    }, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession, LoginRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RegisterRequestDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, CompletePasswordResetDTO, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<void, import("xstate").NonReducibleUnknown, import("xstate").EventObject>> | import("xstate").ActorRefFromLogic<import("xstate").PromiseActorLogic<AuthSession | null, {
         session: AuthSession;
     }, import("xstate").EventObject>> | undefined;
 }, import("xstate").Values<{
+    verifyOtp: {
+        src: "verifyOtp";
+        logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+        id: string | undefined;
+    };
     refreshToken: {
         src: "refreshToken";
         logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -167,11 +167,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
     requestPasswordReset: {
         src: "requestPasswordReset";
         logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
-        id: string | undefined;
-    };
-    verifyOtp: {
-        src: "verifyOtp";
-        logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
         id: string | undefined;
     };
     completeRegistration: {
@@ -245,13 +240,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
         type: "setPasswordResetPendingPassword";
         params: import("xstate").NonReducibleUnknown;
     };
-}>, never, never, "checkingSession" | "validatingSession" | "fetchingProfileAfterValidation" | "refreshingToken" | "authorized" | "fetchingProfileAfterRefresh" | "loggingOut" | {
+}>, never, never, "checkingSession" | "validatingSession" | "fetchingProfileAfterValidation" | "refreshingToken" | "fetchingProfileAfterRefresh" | "loggingOut" | "authorized" | {
     unauthorized: "completeRegistrationProcess" | "loggingInAfterCompletion" | {
         login: "idle" | "submitting";
     } | {
-        register: "verifyOtp" | "submitting" | "form" | "verifyingOtp" | "completingRegistration" | "loggingIn";
+        register: "verifyingOtp" | "completingRegistration" | "loggingIn" | "submitting" | "form" | "verifyOtp";
     } | {
-        forgotPassword: "verifyOtp" | "idle" | "submitting" | "verifyingOtp" | "resetPassword" | "resettingPassword" | "loggingInAfterReset";
+        forgotPassword: "verifyingOtp" | "loggingInAfterReset" | "idle" | "submitting" | "verifyOtp" | "resetPassword" | "resettingPassword";
     };
 }, string, import("xstate").NonReducibleUnknown, import("xstate").NonReducibleUnknown, import("xstate").EventObject, import("xstate").MetaObject, {
     readonly id: "auth";
@@ -300,7 +295,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -333,11 +333,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         requestPasswordReset: {
                             src: "requestPasswordReset";
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
                         completeRegistration: {
@@ -415,7 +410,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                    };
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -452,7 +447,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -488,13 +483,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                    }, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
-                readonly onDone: {
+                readonly onDone: readonly [{
                     readonly target: "fetchingProfileAfterValidation";
-                };
+                }];
                 readonly onError: {
                     readonly target: "refreshingToken";
                 };
@@ -541,7 +536,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                    };
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -578,7 +573,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -614,13 +609,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                    }, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
-                readonly onDone: {
+                readonly onDone: readonly [{
                     readonly target: "authorized";
-                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>, {
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, EventWithSystem, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -656,7 +651,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -691,11 +691,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
                         completeRegistration: {
                             src: "completeRegistration";
                             logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
@@ -719,7 +714,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             id: string | undefined;
                         };
                     }>, never, never, never, never>];
-                };
+                }];
                 readonly onError: {
                     readonly target: "authorized";
                     readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
@@ -758,7 +753,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -791,11 +791,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         requestPasswordReset: {
                             src: "requestPasswordReset";
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
                         completeRegistration: {
@@ -869,7 +864,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                    };
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -906,7 +901,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -942,13 +937,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                    }, import("xstate").AnyEventObject>;
                 }) => {
                     refreshToken: string;
                 };
-                readonly onDone: {
+                readonly onDone: readonly [{
                     readonly target: "fetchingProfileAfterRefresh";
-                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession, string>, {
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, EventWithSystem, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -984,7 +979,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1019,11 +1019,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
                         completeRegistration: {
                             src: "completeRegistration";
                             logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
@@ -1047,7 +1042,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             id: string | undefined;
                         };
                     }>, never, never, never, never>];
-                };
+                }];
                 readonly onError: {
                     readonly target: "unauthorized";
                     readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
@@ -1086,7 +1081,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1119,11 +1119,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         requestPasswordReset: {
                             src: "requestPasswordReset";
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
                         completeRegistration: {
@@ -1193,7 +1188,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                    };
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -1230,7 +1225,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -1266,13 +1261,13 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                    }, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession;
                 };
-                readonly onDone: {
+                readonly onDone: readonly [{
                     readonly target: "authorized";
-                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").DoneActorEvent<AuthSession | null, string>, {
+                    readonly actions: readonly [import("xstate").ActionFunction<AuthContext, EventWithSystem, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -1308,7 +1303,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1343,11 +1343,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
                         completeRegistration: {
                             src: "completeRegistration";
                             logic: import("xstate").PromiseActorLogic<void, CompleteRegistrationDTO, import("xstate").EventObject>;
@@ -1371,7 +1366,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                             id: string | undefined;
                         };
                     }>, never, never, never, never>];
-                };
+                }];
                 readonly onError: {
                     readonly target: "authorized";
                     readonly actions: readonly [import("xstate").ActionFunction<AuthContext, import("xstate").ErrorActorEvent<unknown, string>, {
@@ -1410,7 +1405,12 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, undefined, import("xstate").Values<{
+                    }, undefined, import("xstate").Values<{
+                        verifyOtp: {
+                            src: "verifyOtp";
+                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
+                            id: string | undefined;
+                        };
                         refreshToken: {
                             src: "refreshToken";
                             logic: import("xstate").PromiseActorLogic<AuthSession, {
@@ -1443,11 +1443,6 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         requestPasswordReset: {
                             src: "requestPasswordReset";
                             logic: import("xstate").PromiseActorLogic<void, RequestOtpDTO, import("xstate").EventObject>;
-                            id: string | undefined;
-                        };
-                        verifyOtp: {
-                            src: "verifyOtp";
-                            logic: import("xstate").PromiseActorLogic<string, VerifyOtpDTO, import("xstate").EventObject>;
                             id: string | undefined;
                         };
                         completeRegistration: {
@@ -1541,7 +1536,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1578,7 +1573,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -1614,7 +1609,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -1669,7 +1664,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                            };
                             self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                 type: "CHECK_SESSION";
                             } | {
@@ -1706,7 +1701,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                 type: "CHECK_SESSION";
                             } | {
                                 type: "LOGIN";
@@ -1742,7 +1737,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                            }, import("xstate").AnyEventObject>;
                         }) => CompleteRegistrationDTO;
                         readonly onDone: {
                             readonly target: "loggingInAfterCompletion";
@@ -1794,7 +1789,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                            };
                             self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                 type: "CHECK_SESSION";
                             } | {
@@ -1831,7 +1826,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                            }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                 type: "CHECK_SESSION";
                             } | {
                                 type: "LOGIN";
@@ -1867,7 +1862,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                 type: "GO_TO_LOGIN";
                             } | {
                                 type: "GO_TO_FORGOT_PASSWORD";
-                            } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                            }, import("xstate").AnyEventObject>;
                         }) => LoginRequestDTO;
                         readonly onDone: {
                             readonly target: "#auth.authorized";
@@ -1943,7 +1938,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -1980,7 +1975,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2016,7 +2011,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => RegisterRequestDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
@@ -2083,7 +2078,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2120,7 +2115,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2156,7 +2151,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
                                     otp: string;
@@ -2212,7 +2207,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2249,7 +2244,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2285,7 +2280,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
                                     newPassword: string;
@@ -2338,7 +2333,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2375,7 +2370,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2411,7 +2406,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -2486,7 +2481,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2523,7 +2518,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2559,7 +2554,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => RequestOtpDTO;
                                 readonly onDone: "verifyOtp";
                                 readonly onError: {
@@ -2626,7 +2621,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2663,7 +2658,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2699,7 +2694,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => {
                                     email: string;
                                     otp: string;
@@ -2769,7 +2764,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2806,7 +2801,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2842,7 +2837,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => {
                                     actionToken: string;
                                     newPassword: string;
@@ -2895,7 +2890,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                                    };
                                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                                         type: "CHECK_SESSION";
                                     } | {
@@ -2932,7 +2927,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                                         type: "CHECK_SESSION";
                                     } | {
                                         type: "LOGIN";
@@ -2968,7 +2963,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                                         type: "GO_TO_LOGIN";
                                     } | {
                                         type: "GO_TO_FORGOT_PASSWORD";
-                                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                                    }, import("xstate").AnyEventObject>;
                                 }) => LoginRequestDTO;
                                 readonly onDone: {
                                     readonly target: "#auth.authorized";
@@ -3034,7 +3029,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>;
+                    };
                     self: import("xstate").ActorRef<import("xstate").MachineSnapshot<AuthContext, {
                         type: "CHECK_SESSION";
                     } | {
@@ -3071,7 +3066,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
+                    }, Record<string, import("xstate").AnyActorRef>, import("xstate").StateValue, string, unknown, any, any>, {
                         type: "CHECK_SESSION";
                     } | {
                         type: "LOGIN";
@@ -3107,7 +3102,7 @@ export declare const createAuthMachine: (authRepository: IAuthRepository) => imp
                         type: "GO_TO_LOGIN";
                     } | {
                         type: "GO_TO_FORGOT_PASSWORD";
-                    } | ErrorActorEvent | DoneActorEvent<AuthSession | null> | DoneActorEvent<AuthSession> | DoneActorEvent<void> | DoneActorEvent<string>, import("xstate").AnyEventObject>;
+                    }, import("xstate").AnyEventObject>;
                 }) => {
                     session: AuthSession | undefined;
                 };

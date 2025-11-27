@@ -63,11 +63,7 @@ function handleApiError(error) {
                 case 502:
                 case 503:
                 case 504:
-                    userMessage = messageField ||
-                        (errorField &&
-                            (errorField.toLowerCase().includes('internal') || errorField.toLowerCase().includes('error'))
-                            ? errorCodes_1.ErrorMessages[errorCodes_1.AuthErrorCode.SERVER_ERROR]
-                            : errorCodes_1.ErrorMessages[errorCodes_1.AuthErrorCode.SERVER_ERROR]);
+                    userMessage = messageField || errorCodes_1.ErrorMessages[errorCodes_1.AuthErrorCode.SERVER_ERROR];
                     break;
                 default:
                     userMessage = messageField || axiosError.message || errorCodes_1.ErrorMessages[errorCodes_1.AuthErrorCode.GENERAL_ERROR];
@@ -121,11 +117,21 @@ function withErrorHandling(fn) {
         try {
             const result = fn(...args);
             if (result instanceof Promise) {
-                return result.catch(handleApiError);
+                return result.catch((error) => {
+                    // Preserve the original stack trace before handling
+                    if (error instanceof Error && error.stack) {
+                        Error.captureStackTrace(error, fn);
+                    }
+                    return handleApiError(error);
+                });
             }
             return result;
         }
         catch (error) {
+            // Preserve the original stack trace before handling
+            if (error instanceof Error && error.stack) {
+                Error.captureStackTrace(error, fn);
+            }
             handleApiError(error);
         }
     });
