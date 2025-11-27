@@ -354,6 +354,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
     initial: "checkingSession",
     states: {
       checkingSession: {
+        meta: {
+          testDescription: "Checking if session exists"
+        },
         invoke: {
           src: "checkSession",
           onDone: [
@@ -370,6 +373,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         },
       },
       validatingSession: {
+        meta: {
+          testDescription: "Validating existing session with server"
+        },
         on: {
           COMPLETE_REGISTRATION:
             "#auth.unauthorized.completeRegistrationProcess",
@@ -386,6 +392,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         },
       },
       fetchingProfileAfterValidation: {
+        meta: {
+          testDescription: "Fetching updated profile after session validation"
+        },
         invoke: {
           src: "validateSessionWithServer", // This will fetch the profile
           input: ({ context }) => ({ session: context.session! }),
@@ -411,6 +420,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         },
       },
       refreshingToken: {
+        meta: {
+          testDescription: "Refreshing the access token using refresh token"
+        },
         on: {
           COMPLETE_REGISTRATION:
             "#auth.unauthorized.completeRegistrationProcess",
@@ -441,6 +453,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         },
       },
       fetchingProfileAfterRefresh: {
+        meta: {
+          testDescription: "Fetching updated profile after token refresh"
+        },
         invoke: {
           src: "validateSessionWithServer",
           input: ({ context }) => ({ session: context.session! }),
@@ -467,12 +482,18 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       },
 
       unauthorized: {
+        meta: {
+          testDescription: "Unauthenticated state - user needs to log in"
+        },
         initial: "login",
         on: {
           COMPLETE_REGISTRATION: ".completeRegistrationProcess", // Handle complete registration from unauthorized state
         },
         states: {
           login: {
+            meta: {
+              testDescription: "Login sub-flow"
+            },
             initial: "idle",
             on: {
               GO_TO_REGISTER: "#auth.unauthorized.register",
@@ -480,6 +501,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             },
             states: {
               idle: {
+                meta: {
+                  testDescription: "Login form idle state - waiting for user input"
+                },
                 on: {
                   LOGIN: {
                     target: "submitting",
@@ -488,6 +512,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               submitting: {
+                meta: {
+                  testDescription: "Submitting login credentials to server"
+                },
                 on: {
                   CANCEL: "idle",
                 },
@@ -510,6 +537,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             },
           },
           completeRegistrationProcess: {
+            meta: {
+              testDescription: "Complete registration process after OTP verification"
+            },
             invoke: {
               src: "completeRegistration",
               input: ({ event }) => {
@@ -534,6 +564,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             },
           },
           loggingInAfterCompletion: {
+            meta: {
+              testDescription: "Logging in after completing registration"
+            },
             invoke: {
               src: "loginUser",
               input: ({ context }) => {
@@ -556,6 +589,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
           },
 
           register: {
+            meta: {
+              testDescription: "Registration sub-flow"
+            },
             initial: "form",
             on: {
               GO_TO_LOGIN: {
@@ -565,6 +601,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             },
             states: {
               form: {
+                meta: {
+                  testDescription: "Registration form state - collecting user information"
+                },
                 on: {
                   REGISTER: {
                     target: "submitting",
@@ -573,6 +612,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               submitting: {
+                meta: {
+                  testDescription: "Submitting registration to server"
+                },
                 on: {
                   CANCEL: {
                     target: "form",
@@ -593,6 +635,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               verifyOtp: {
+                meta: {
+                  testDescription: "Waiting for user to enter OTP for verification"
+                },
                 on: {
                   VERIFY_OTP: {
                     guard: ({ context }) => !!context.registration?.email,
@@ -605,6 +650,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               verifyingOtp: {
+                meta: {
+                  testDescription: "Verifying the OTP with server"
+                },
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) => {
@@ -625,6 +673,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               completingRegistration: {
+                meta: {
+                  testDescription: "Completing registration with new password"
+                },
                 invoke: {
                   src: "completeRegistration",
                   input: ({ context }) => ({
@@ -641,6 +692,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               loggingIn: {
+                meta: {
+                  testDescription: "Logging in after completing registration"
+                },
                 invoke: {
                   src: "loginUser",
                   input: ({ context }) => {
@@ -671,6 +725,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
           },
 
           forgotPassword: {
+            meta: {
+              testDescription: "Forgot password sub-flow"
+            },
             initial: "idle",
             on: {
               GO_TO_LOGIN: {
@@ -680,6 +737,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             },
             states: {
               idle: {
+                meta: {
+                  testDescription: "Forgot password form idle state - waiting for email input"
+                },
                 on: {
                   FORGOT_PASSWORD: {
                     target: "submitting",
@@ -688,6 +748,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               submitting: {
+                meta: {
+                  testDescription: "Submitting email for password reset request"
+                },
                 on: {
                   CANCEL: "idle",
                 },
@@ -705,6 +768,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               verifyOtp: {
+                meta: {
+                  testDescription: "Waiting for user to enter OTP for password reset"
+                },
                 on: {
                   VERIFY_OTP: {
                     guard: ({ context }) => !!context.passwordReset?.email,
@@ -717,6 +783,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               verifyingOtp: {
+                meta: {
+                  testDescription: "Verifying the password reset OTP with server"
+                },
                 invoke: {
                   src: "verifyOtp",
                   input: ({ context, event }) => {
@@ -737,6 +806,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               resetPassword: {
+                meta: {
+                  testDescription: "Waiting for user to enter new password"
+                },
                 on: {
                   RESET_PASSWORD: {
                     guard: ({ context }) =>
@@ -747,6 +819,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               resettingPassword: {
+                meta: {
+                  testDescription: "Submitting new password to complete reset"
+                },
                 invoke: {
                   src: "completePasswordReset",
                   input: ({ context }) => ({
@@ -762,6 +837,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 },
               },
               loggingInAfterReset: {
+                meta: {
+                  testDescription: "Logging in after completing password reset"
+                },
                 invoke: {
                   src: "loginUser",
                   input: ({ context }) => {
@@ -793,6 +871,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         },
       },
       authorized: {
+        meta: {
+          testDescription: "Authenticated state - user has valid session"
+        },
         on: {
           LOGOUT: {
             target: "loggingOut",
@@ -811,6 +892,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
       },
 
       loggingOut: {
+        meta: {
+          testDescription: "Logging out user and clearing session"
+        },
         invoke: {
           src: "logoutUser",
           onDone: {
