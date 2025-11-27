@@ -1,6 +1,19 @@
 import axios, { AxiosError } from "axios";
 import { AuthErrorCode, ErrorMessages } from "./errorCodes";
 
+// Status code to error code mapping for both message and code purposes
+const statusCodeToErrorCode: Record<number, AuthErrorCode> = {
+  400: AuthErrorCode.VALIDATION_ERROR,
+  401: AuthErrorCode.UNAUTHORIZED,
+  403: AuthErrorCode.FORBIDDEN,
+  404: AuthErrorCode.NOT_FOUND,
+  429: AuthErrorCode.TOO_MANY_REQUESTS,
+  500: AuthErrorCode.SERVER_ERROR,
+  502: AuthErrorCode.SERVER_ERROR,
+  503: AuthErrorCode.SERVER_ERROR,
+  504: AuthErrorCode.SERVER_ERROR,
+};
+
 /**
  * Custom error class that preserves original error context while providing user-friendly messages
  */
@@ -53,30 +66,20 @@ export function handleApiError(error: unknown): never {
     let userMessage = ErrorMessages[AuthErrorCode.GENERAL_ERROR];
 
     if (response) {
-      switch (status) {
-        case 400:
-          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.VALIDATION_ERROR];
-          break;
-        case 401:
-          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.UNAUTHORIZED];
-          break;
-        case 403:
-          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.FORBIDDEN];
-          break;
-        case 404:
-          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.NOT_FOUND];
-          break;
-        case 429:
-          userMessage = messageField || ErrorMessages[AuthErrorCode.TOO_MANY_REQUESTS];
-          break;
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-          userMessage = messageField || ErrorMessages[AuthErrorCode.SERVER_ERROR];
-          break;
-        default:
-          userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.GENERAL_ERROR];
+      // Get the appropriate error code based on status, then get corresponding message
+      const errorCode = status ? statusCodeToErrorCode[status] : undefined;
+      if (status && errorCode) {
+        // For 429 and 5xx server errors, use message field or default error message
+        // For other 4xx errors, use message field, axios error message, or default
+        if (status === 429 || (status >= 500 && status <= 599)) {
+          userMessage = messageField || ErrorMessages[errorCode];
+        } else {
+          // For 4xx errors (except 429), use the server message, then axios message, then default
+          userMessage = messageField || axiosError.message || ErrorMessages[errorCode];
+        }
+      } else {
+        // Default case for undefined status or other status codes
+        userMessage = messageField || axiosError.message || ErrorMessages[AuthErrorCode.GENERAL_ERROR];
       }
     } else {
       // Network errors (no response)
@@ -105,19 +108,7 @@ export function handleApiError(error: unknown): never {
  */
 function getAuthErrorCodeFromStatus(status?: number): AuthErrorCode | undefined {
   if (!status) return undefined;
-
-  switch (status) {
-    case 400: return AuthErrorCode.VALIDATION_ERROR;
-    case 401: return AuthErrorCode.UNAUTHORIZED;
-    case 403: return AuthErrorCode.FORBIDDEN;
-    case 404: return AuthErrorCode.NOT_FOUND;
-    case 429: return AuthErrorCode.TOO_MANY_REQUESTS;
-    case 500:
-    case 502:
-    case 503:
-    case 504: return AuthErrorCode.SERVER_ERROR;
-    default: return undefined;
-  }
+  return statusCodeToErrorCode[status];
 }
 
 /**
