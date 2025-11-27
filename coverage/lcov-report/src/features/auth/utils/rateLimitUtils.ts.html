@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for utils/errorCodes.ts</title>
+    <title>Code coverage report for src/features/auth/utils/rateLimitUtils.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../prettify.css" />
-    <link rel="stylesheet" href="../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../sort-arrow-sprite.png);
+            background-image: url(../../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">utils</a> errorCodes.ts</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">src/features/auth/utils</a> rateLimitUtils.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>32/32</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>32/32</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
@@ -154,71 +154,82 @@
 <a name='L89'></a><a href='#L89'>89</a>
 <a name='L90'></a><a href='#L90'>90</a>
 <a name='L91'></a><a href='#L91'>91</a>
-<a name='L92'></a><a href='#L92'>92</a>
-<a name='L93'></a><a href='#L93'>93</a>
-<a name='L94'></a><a href='#L94'>94</a>
-<a name='L95'></a><a href='#L95'>95</a>
-<a name='L96'></a><a href='#L96'>96</a>
-<a name='L97'></a><a href='#L97'>97</a>
-<a name='L98'></a><a href='#L98'>98</a>
-<a name='L99'></a><a href='#L99'>99</a>
-<a name='L100'></a><a href='#L100'>100</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L92'></a><a href='#L92'>92</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-yes">57x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">57x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -234,149 +245,114 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * Error codes dictionary for secure error handling
- * Contains generic error messages to prevent information disclosure
+<span class="cline-any cline-yes">1x</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Rate limiting utilities for authentication endpoints
+ * Uses a simple in-memory approach without background processes
  */
 &nbsp;
-export enum AuthErrorCode {
-  // General errors
-  GENERAL_ERROR = 'AUTH_001',
-  NETWORK_ERROR = 'AUTH_002',
-  INVALID_INPUT = 'AUTH_003',
-  SESSION_EXPIRED = 'AUTH_004',
-  TOKEN_INVALID = 'AUTH_005',
-  
-  // Authentication errors
-  LOGIN_FAILED = 'AUTH_101',
-  REGISTRATION_FAILED = 'AUTH_102',
-  USER_NOT_FOUND = 'AUTH_103',
-  INVALID_CREDENTIALS = 'AUTH_104',
-  ACCOUNT_LOCKED = 'AUTH_105',
-  ACCOUNT_DISABLED = 'AUTH_106',
-  
-  // Authorization errors
-  UNAUTHORIZED_ACCESS = 'AUTH_201',
-  INSUFFICIENT_PERMISSIONS = 'AUTH_202',
-  INVALID_TOKEN = 'AUTH_203',
-  TOKEN_EXPIRED = 'AUTH_204',
-  
-  // OTP related errors
-  OTP_INVALID = 'AUTH_301',
-  OTP_EXPIRED = 'AUTH_302',
-  OTP_RATE_LIMITED = 'AUTH_303',
-  OTP_SEND_FAILED = 'AUTH_304',
-  
-  // Password related errors
-  PASSWORD_RESET_FAILED = 'AUTH_401',
-  PASSWORD_WEAK = 'AUTH_402',
-  PASSWORD_MISMATCH = 'AUTH_403',
-  PASSWORD_SAME_AS_OLD = 'AUTH_404',
-  
-  // Rate limiting
-  TOO_MANY_REQUESTS = 'AUTH_501',
-  RATE_LIMIT_EXCEEDED = 'AUTH_502',
-&nbsp;
-  // Additional API error codes
-  VALIDATION_ERROR = 'AUTH_601',
-  UNAUTHORIZED = 'AUTH_602',
-  FORBIDDEN = 'AUTH_603',
-  NOT_FOUND = 'AUTH_604',
-&nbsp;
-  // Server errors
-  SERVER_ERROR = 'AUTH_999',
+export interface RateLimitOptions {
+  maxAttempts: number;
+  windowMs: number;
 }
 &nbsp;
-export const ErrorMessages: Record&lt;AuthErrorCode, string&gt; = {
-  // General errors
-  [AuthErrorCode.GENERAL_ERROR]: 'An unexpected error occurred',
-  [AuthErrorCode.NETWORK_ERROR]: 'Network connection error',
-  [AuthErrorCode.INVALID_INPUT]: 'Invalid input provided',
-  [AuthErrorCode.SESSION_EXPIRED]: 'Session expired, please login again',
-  [AuthErrorCode.TOKEN_INVALID]: 'Invalid authentication token',
-  
-  // Authentication errors
-  [AuthErrorCode.LOGIN_FAILED]: 'Login failed',
-  [AuthErrorCode.REGISTRATION_FAILED]: 'Registration failed',
-  [AuthErrorCode.USER_NOT_FOUND]: 'User not found',
-  [AuthErrorCode.INVALID_CREDENTIALS]: 'Invalid credentials',
-  [AuthErrorCode.ACCOUNT_LOCKED]: 'Account is locked',
-  [AuthErrorCode.ACCOUNT_DISABLED]: 'Account is disabled',
-  
-  // Authorization errors
-  [AuthErrorCode.UNAUTHORIZED_ACCESS]: 'Access denied',
-  [AuthErrorCode.INSUFFICIENT_PERMISSIONS]: 'Insufficient permissions',
-  [AuthErrorCode.INVALID_TOKEN]: 'Invalid token',
-  [AuthErrorCode.TOKEN_EXPIRED]: 'Token expired',
-  
-  // OTP related errors
-  [AuthErrorCode.OTP_INVALID]: 'Invalid OTP code',
-  [AuthErrorCode.OTP_EXPIRED]: 'OTP code has expired',
-  [AuthErrorCode.OTP_RATE_LIMITED]: 'Too many attempts, please try again later',
-  [AuthErrorCode.OTP_SEND_FAILED]: 'Failed to send OTP',
-  
-  // Password related errors
-  [AuthErrorCode.PASSWORD_RESET_FAILED]: 'Password reset failed',
-  [AuthErrorCode.PASSWORD_WEAK]: 'Password does not meet requirements',
-  [AuthErrorCode.PASSWORD_MISMATCH]: 'Passwords do not match',
-  [AuthErrorCode.PASSWORD_SAME_AS_OLD]: 'New password cannot be the same as old password',
-  
-  // Rate limiting
-  [AuthErrorCode.TOO_MANY_REQUESTS]: 'Too many requests, please try again later',
-  [AuthErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
+export interface RateLimitState {
+  count: number;
+  resetTime: number;
+}
 &nbsp;
-  // Additional API error messages
-  [AuthErrorCode.VALIDATION_ERROR]: 'Validation error occurred',
-  [AuthErrorCode.UNAUTHORIZED]: 'Unauthorized access',
-  [AuthErrorCode.FORBIDDEN]: 'Access forbidden',
-  [AuthErrorCode.NOT_FOUND]: 'Resource not found',
+export class RateLimiter {
+  private attempts: Map&lt;string, RateLimitState&gt; = new Map();
 &nbsp;
-  // Server errors
-  [AuthErrorCode.SERVER_ERROR]: 'Server error occurred',
-};</pre></td></tr></table></pre>
+  check(key: string, options: RateLimitOptions): { allowed: boolean; resetTime?: number } {
+    const now = Date.now();
+    const state = this.attempts.get(key);
+&nbsp;
+    // Clean up expired entries before checking
+    this.cleanupExpired(now);
+&nbsp;
+    if (!state) {
+      // First attempt
+      this.attempts.set(key, {
+        count: 1,
+        resetTime: now + options.windowMs
+      });
+      return { allowed: true };
+    }
+&nbsp;
+    if (now &gt;= state.resetTime) {
+      // Window has passed, reset
+      this.attempts.set(key, {
+        count: 1,
+        resetTime: now + options.windowMs
+      });
+      return { allowed: true };
+    }
+&nbsp;
+    if (state.count &gt;= options.maxAttempts) {
+      // Rate limit exceeded
+      return {
+        allowed: false,
+        resetTime: state.resetTime
+      };
+    }
+&nbsp;
+    // Increment count
+    this.attempts.set(key, {
+      count: state.count + 1,
+      resetTime: state.resetTime
+    });
+&nbsp;
+    return { allowed: true };
+  }
+&nbsp;
+  private cleanupExpired(now: number): void {
+    // Clean up expired entries
+    for (const [key, state] of this.attempts.entries()) {
+      if (now &gt;= state.resetTime) {
+        this.attempts.delete(key);
+      }
+    }
+  }
+&nbsp;
+  reset(key: string): void {
+    this.attempts.delete(key);
+  }
+}
+&nbsp;
+// Default rate limiting options
+export const DEFAULT_RATE_LIMITS = {
+  login: {
+    maxAttempts: 5,
+    windowMs: 15 * 60 * 1000 // 15 minutes
+  },
+  otpRequest: {
+    maxAttempts: 3,
+    windowMs: 5 * 60 * 1000 // 5 minutes
+  },
+  registration: {
+    maxAttempts: 10,
+    windowMs: 60 * 60 * 1000 // 1 hour
+  }
+};
+&nbsp;
+// Global rate limiter instance
+export const authRateLimiter = new RateLimiter();</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-27T11:49:19.789Z
+                at 2025-11-27T11:47:21.033Z
             </div>
-        <script src="../prettify.js"></script>
+        <script src="../../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../sorter.js"></script>
-        <script src="../block-navigation.js"></script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
     </body>
 </html>
     

@@ -34,7 +34,7 @@ import type {
 // Sanitization helpers
 // ============================================================================
 
-const sanitizeInput = (input: string): string => {
+export const sanitizeInput = (input: string): string => {
   if (typeof input !== "string") {
     return "";
   }
@@ -49,7 +49,7 @@ const sanitizeInput = (input: string): string => {
     .trim(); // Remove leading/trailing whitespace
 };
 
-const sanitizeEmail = (email: string): string => {
+export const sanitizeEmail = (email: string): string => {
   if (typeof email !== "string") {
     return "";
   }
@@ -59,7 +59,7 @@ const sanitizeEmail = (email: string): string => {
   return email.toLowerCase().trim().substring(0, 254);
 };
 
-const sanitizePassword = (password: string): string => {
+export const sanitizePassword = (password: string): string => {
   if (typeof password !== "string") {
     return "";
   }
@@ -69,7 +69,7 @@ const sanitizePassword = (password: string): string => {
   return password.replace(/['"]/g, "");
 };
 
-const sanitizeOtp = (otp: string): string => {
+export const sanitizeOtp = (otp: string): string => {
   if (typeof otp !== "string") {
     return "";
   }
@@ -79,7 +79,7 @@ const sanitizeOtp = (otp: string): string => {
   return digitsOnly;
 };
 
-const sanitizeActionToken = (token: string): string => {
+export const sanitizeActionToken = (token: string): string => {
   if (typeof token !== "string") {
     return "";
   }

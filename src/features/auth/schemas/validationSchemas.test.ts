@@ -22,9 +22,121 @@ import {
   AuthSessionSchema,
   ApiSuccessResponseSchema,
   ApiErrorResponseSchema,
+  sanitizeInput,
+  sanitizeEmail,
+  sanitizePassword,
+  sanitizeOtp,
+  sanitizeActionToken,
 } from "./validationSchemas";
 
 describe("Validation Schemas - Comprehensive Branch Coverage", () => {
+  describe("Sanitization Functions", () => {
+    describe("sanitizeInput", () => {
+      it("should handle normal strings", () => {
+        expect(sanitizeInput("hello world")).toBe("hello world");
+      });
+
+      it("should handle HTML injection", () => {
+        expect(sanitizeInput("<script>alert('xss')</script>")).toBe(
+          "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;&#x2F;script&gt;"
+        );
+      });
+
+      it("should trim whitespace", () => {
+        expect(sanitizeInput("  hello  ")).toBe("hello");
+      });
+
+      it("should handle non-string input", () => {
+        expect(sanitizeInput(123 as any)).toBe("");
+        expect(sanitizeInput(null as any)).toBe("");
+        expect(sanitizeInput(undefined as any)).toBe("");
+        expect(sanitizeInput({} as any)).toBe("");
+      });
+
+      it("should escape quotes", () => {
+        expect(sanitizeInput('He said "Hello"')).toBe("He said &quot;Hello&quot;");
+        expect(sanitizeInput("It's a 'test'")).toBe("It&#x27;s a &#x27;test&#x27;");
+      });
+    });
+
+    describe("sanitizeEmail", () => {
+      it("should normalize valid email", () => {
+        expect(sanitizeEmail("TEST@EXAMPLE.COM")).toBe("test@example.com");
+      });
+
+      it("should trim whitespace", () => {
+        expect(sanitizeEmail("  test@example.com  ")).toBe("test@example.com");
+      });
+
+      it("should limit length", () => {
+        const longEmail = "a".repeat(300) + "@example.com";
+        const sanitized = sanitizeEmail(longEmail);
+        expect(sanitized.length).toBeLessThanOrEqual(254);
+      });
+
+      it("should handle non-string input", () => {
+        expect(sanitizeEmail(123 as any)).toBe("");
+        expect(sanitizeEmail(null as any)).toBe("");
+        expect(sanitizeEmail(undefined as any)).toBe("");
+        expect(sanitizeEmail({} as any)).toBe("");
+      });
+    });
+
+    describe("sanitizePassword", () => {
+      it("should remove quotes from password", () => {
+        expect(sanitizePassword("password'with'quotes")).toBe("passwordwithquotes");
+        expect(sanitizePassword('password"with"quotes')).toBe("passwordwithquotes");
+      });
+
+      it("should handle non-string input", () => {
+        expect(sanitizePassword(123 as any)).toBe("");
+        expect(sanitizePassword(null as any)).toBe("");
+        expect(sanitizePassword(undefined as any)).toBe("");
+        expect(sanitizePassword({} as any)).toBe("");
+      });
+    });
+
+    describe("sanitizeOtp", () => {
+      it("should keep only digits", () => {
+        expect(sanitizeOtp("123456")).toBe("123456");
+        expect(sanitizeOtp("1a2b3c")).toBe("123");
+        expect(sanitizeOtp("!@#123$%^")).toBe("123");
+      });
+
+      it("should limit length", () => {
+        const longOtp = "1".repeat(15);
+        const sanitized = sanitizeOtp(longOtp);
+        expect(sanitized.length).toBeLessThanOrEqual(10);
+      });
+
+      it("should handle non-string input", () => {
+        expect(sanitizeOtp(123 as any)).toBe("");
+        expect(sanitizeOtp(null as any)).toBe("");
+        expect(sanitizeOtp(undefined as any)).toBe("");
+        expect(sanitizeOtp({} as any)).toBe("");
+      });
+    });
+
+    describe("sanitizeActionToken", () => {
+      it("should remove dangerous characters", () => {
+        expect(sanitizeActionToken("token'with'quotes")).toBe("tokenwithquotes");
+        expect(sanitizeActionToken('token"with"quotes')).toBe("tokenwithquotes");
+        expect(sanitizeActionToken("token<with>html")).toBe("tokenwithhtml");
+      });
+
+      it("should trim whitespace", () => {
+        expect(sanitizeActionToken("  token123  ")).toBe("token123");
+      });
+
+      it("should handle non-string input", () => {
+        expect(sanitizeActionToken(123 as any)).toBe("");
+        expect(sanitizeActionToken(null as any)).toBe("");
+        expect(sanitizeActionToken(undefined as any)).toBe("");
+        expect(sanitizeActionToken({} as any)).toBe("");
+      });
+    });
+  });
+
   describe("EmailSchema", () => {
     it("should validate valid email addresses", () => {
       const validEmails = [

@@ -241,6 +241,86 @@ describe("errorHandler", () => {
 
       expect(() => handleApiError(axiosError)).toThrow("I'm a teapot");
     });
+
+    it("should handle 500 with error field containing 'internal'", () => {
+      const axiosError = {
+        response: { status: 500, data: { error: "Internal system error" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow(
+        ErrorMessages[AuthErrorCode.SERVER_ERROR]
+      );
+    });
+
+    it("should handle 500 with error field containing 'error'", () => {
+      const axiosError = {
+        response: { status: 500, data: { error: "Database error occurred" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow(
+        ErrorMessages[AuthErrorCode.SERVER_ERROR]
+      );
+    });
+
+    it("should handle 500 with error field not containing 'internal' or 'error'", () => {
+      const axiosError = {
+        response: { status: 500, data: { error: "Some other message" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow(
+        ErrorMessages[AuthErrorCode.SERVER_ERROR]
+      );
+    });
+
+    it("should handle 502 with error field containing 'internal'", () => {
+      const axiosError = {
+        response: { status: 502, data: { error: "Internal gateway error" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow(
+        ErrorMessages[AuthErrorCode.SERVER_ERROR]
+      );
+    });
+
+    it("should handle 503 with error field containing 'error'", () => {
+      const axiosError = {
+        response: { status: 503, data: { error: "Service error" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow(
+        ErrorMessages[AuthErrorCode.SERVER_ERROR]
+      );
+    });
+
+    it("should handle 504 with message field taking precedence over error field", () => {
+      const axiosError = {
+        response: { status: 504, data: { message: "Custom gateway timeout", error: "Some error" } },
+        message: "Server error",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow("Custom gateway timeout");
+    });
+
+    it("should handle network error (no response)", () => {
+      const axiosError = {
+        response: undefined,
+        message: "Network error occurred",
+      };
+      mockedAxios.isAxiosError.mockReturnValue(true);
+
+      expect(() => handleApiError(axiosError)).toThrow("Network error occurred");
+    });
   });
 
   describe("withErrorHandling", () => {
