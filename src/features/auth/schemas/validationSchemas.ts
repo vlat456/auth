@@ -34,11 +34,21 @@ import type {
 // Sanitization helpers
 // ============================================================================
 
-export const sanitizeInput = (input: string): string => {
-  if (typeof input !== "string") {
-    return "";
-  }
+/**
+ * Generic sanitizer builder that creates a sanitization function
+ * @param sanitizeOperation A function that performs the specific sanitization logic
+ * @returns A sanitization function that validates input type and applies the operation
+ */
+export const createSanitizer = (sanitizeOperation: (input: string) => string) => {
+  return (input: string): string => {
+    if (typeof input !== "string") {
+      return "";
+    }
+    return sanitizeOperation(input);
+  };
+};
 
+export const sanitizeInput = createSanitizer((input) => {
   // Remove or escape potentially dangerous characters
   return input
     .replace(/</g, "&lt;") // Prevent HTML injection
@@ -47,46 +57,30 @@ export const sanitizeInput = (input: string): string => {
     .replace(/'/g, "&#x27;") // Prevent attribute escaping
     .replace(/\//g, "&#x2F;") // Prevent closing tags
     .trim(); // Remove leading/trailing whitespace
-};
+});
 
-export const sanitizeEmail = (email: string): string => {
-  if (typeof email !== "string") {
-    return "";
-  }
-
+export const sanitizeEmail = createSanitizer((email) => {
   // Use validator to normalize and validate email (if available, otherwise basic normalization)
   // For now, we implement basic normalization
   return email.toLowerCase().trim().substring(0, 254);
-};
+});
 
-export const sanitizePassword = (password: string): string => {
-  if (typeof password !== "string") {
-    return "";
-  }
-
+export const sanitizePassword = createSanitizer((password) => {
   // Don't overly restrict password chars as this might reduce entropy
   // Just remove potentially dangerous characters
   return password.replace(/['"]/g, "");
-};
+});
 
-export const sanitizeOtp = (otp: string): string => {
-  if (typeof otp !== "string") {
-    return "";
-  }
-
+export const sanitizeOtp = createSanitizer((otp) => {
   // Only allow digits and ensure it's not too long
   const digitsOnly = otp.replace(/\D/g, "").substring(0, 10);
   return digitsOnly;
-};
+});
 
-export const sanitizeActionToken = (token: string): string => {
-  if (typeof token !== "string") {
-    return "";
-  }
-
+export const sanitizeActionToken = createSanitizer((token) => {
   // Remove potential dangerous characters but keep token format
   return token.replace(/['"<>]/g, "").trim();
-};
+});
 
 // ============================================================================
 // Primitive Schemas with sanitization
