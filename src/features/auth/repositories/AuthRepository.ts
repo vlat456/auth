@@ -22,6 +22,7 @@ import {
 } from "../types";
 import { withErrorHandling } from "../utils/errorHandler";
 import { Mutex } from "../utils/lockUtils";
+import { SessionManager } from "../utils/SessionManager";
 import {
   LoginResponseSchemaWrapper,
   RefreshResponseSchemaWrapper,
@@ -34,11 +35,12 @@ const STORAGE_KEY = "user_session_token";
 export class AuthRepository implements IAuthRepository {
   private apiClient: AxiosInstance;
   private storage: IStorage;
-  private storageMutex = new Mutex(); // Ensures atomic session storage operations
+  private sessionManager: SessionManager;
   private refreshMutex = new Mutex(); // Prevents concurrent token refresh requests
 
   constructor(storage: IStorage, baseURL?: string) {
     this.storage = storage;
+    this.sessionManager = new SessionManager({ storage });
 
     const finalBaseURL = baseURL || "https://api.astra.example.com";
 
@@ -62,12 +64,12 @@ export class AuthRepository implements IAuthRepository {
 
       // Validate using direct Zod parsing
       const validatedData = LoginResponseSchemaWrapper.parse(response.data);
-      const session: AuthSession = {
-        accessToken: validatedData.data.accessToken,
-        refreshToken: validatedData.data.refreshToken,
-      };
+      const session = this.sessionManager.createSession(
+        validatedData.data.accessToken,
+        validatedData.data.refreshToken
+      );
 
-      await this.saveSession(session);
+      await this.sessionManager.saveSession(session);
       return session;
     }
   );
@@ -110,7 +112,7 @@ export class AuthRepository implements IAuthRepository {
    * (state management is handled by the auth machine)
    */
   checkSession = withErrorHandling(async (): Promise<AuthSession | null> => {
-    return await this.readSession();
+    return await this.sessionManager.readSession();
   });
 
   /**
@@ -136,20 +138,19 @@ export class AuthRepository implements IAuthRepository {
         const newAccessToken = validatedData.data.accessToken;
 
         // Get the current session to preserve other data
-        const currentSession = await this.readSession();
+        const currentSession = await this.sessionManager.readSession();
         if (!currentSession) {
           throw new Error("No current session found during refresh");
         }
 
         // Create new session with fresh access token, keep refresh token, and preserve profile
         // Profile updates should be handled separately by the calling component/state machine
-        const refreshedSession: AuthSession = {
-          accessToken: newAccessToken,
-          refreshToken: currentSession.refreshToken,
-          profile: currentSession.profile, // Preserve the existing profile
-        };
+        const refreshedSession = this.sessionManager.createRefreshedSession(
+          currentSession,
+          newAccessToken
+        );
 
-        await this.saveSession(refreshedSession);
+        await this.sessionManager.saveSession(refreshedSession);
         return refreshedSession;
       } finally {
         release();
@@ -161,7 +162,7 @@ export class AuthRepository implements IAuthRepository {
    * Refreshes the user profile data without requiring a token refresh.
    */
   refreshProfile = withErrorHandling(async (): Promise<AuthSession | null> => {
-    const session = await this.readSession();
+    const session = await this.sessionManager.readSession();
     if (!session) return null;
 
     const response = await this.apiClient.get<UserProfile>("/auth/me", {
@@ -169,98 +170,25 @@ export class AuthRepository implements IAuthRepository {
     });
 
     const userData = response.data;
-    if (!this.isUserProfile(userData)) {
+    if (!this.sessionManager.validateProfile(userData)) {
       return null;
     }
 
     // Update session with fresh profile
-    const updatedSession: AuthSession = {
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken,
-      profile: userData,
-    };
+    const updatedSession = this.sessionManager.updateProfile(session, userData);
 
-    await this.saveSession(updatedSession);
+    await this.sessionManager.saveSession(updatedSession);
     return updatedSession;
   });
 
   logout = withErrorHandling(async (): Promise<void> => {
-    await this.storage.removeItem(STORAGE_KEY);
+    await this.sessionManager.removeSession();
   });
 
   // --- Internals ---
 
-  private async saveSession(session: AuthSession): Promise<void> {
-    // Use mutex to ensure atomic write: no crash between remove and set
-    // This prevents data loss if app crashes during session save
-    const release = await this.storageMutex.acquire();
-    try {
-      // Write new session first (safest order)
-      await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
-      // Note: We keep any old data to minimize data loss if crash occurs
-      // Storage will contain either old or new complete session, never partial state
-    } finally {
-      release();
-    }
-  }
-
-  private async readSession(): Promise<AuthSession | null> {
-    const raw = await this.storage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    // Try to parse as JSON first
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return this.processParsedSession(parsed);
-    } catch {
-      // Fall back to legacy string token storage
-      if (typeof raw === "string" && raw.startsWith("{") === false) {
-        return { accessToken: raw };
-      }
-    }
-
-    return null;
-  }
-
-  private processParsedSession(parsed: unknown): AuthSession | null {
-    // Use Zod to validate the parsed session object - primary validation
-    try {
-      return AuthSessionSchema.parse(parsed) as AuthSession;
-    } catch (error) {
-      console.warn(`Failed to parse session with strict validation: ${error}`);
-
-      // Fallback: Basic validation for backward compatibility
-      return this.tryLegacySessionParsing(parsed);
-    }
-  }
-
-  private tryLegacySessionParsing(parsed: unknown): AuthSession | null {
-    // Only proceed if we have a valid object with at least an accessToken
-    if (typeof parsed !== "object" || parsed === null) {
-      console.error(`Invalid session format in storage - clearing`);
-      return null;
-    }
-
-    const obj = parsed as Record<string, unknown>;
-
-    // Must have a string accessToken as minimum requirement
-    if (typeof obj.accessToken !== "string") {
-      console.error(`Invalid session format in storage - clearing`);
-      return null;
-    }
-
-    // Construct session with available properties
-    const session: AuthSession = {
-      accessToken: obj.accessToken,
-      refreshToken: typeof obj.refreshToken === "string" ? obj.refreshToken : undefined,
-      profile: this.isUserProfile(obj.profile) ? obj.profile : undefined,
-    };
-
-    return session;
-  }
-
   private isUserProfile(data: unknown): data is UserProfile {
-    return UserProfileSchema.safeParse(data).success;
+    return this.sessionManager.validateProfile(data);
   }
 
   private initializeInterceptors() {
