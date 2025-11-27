@@ -16,6 +16,10 @@
 
 import { AuthService } from "./authService";
 import { IAuthRepository, AuthSession, AuthError } from "../types";
+import {
+  AUTH_OPERATION_TIMEOUT_MS,
+  SESSION_CHECK_TIMEOUT_MS,
+} from "../utils/authConstants";
 
 // Mock repository with all methods
 const createMockRepository = (): IAuthRepository => ({
@@ -41,6 +45,12 @@ describe("AuthService - Comprehensive Coverage", () => {
   });
 
   afterEach(() => {
+    // Use fake timers temporarily to process any pending timeouts
+    // This ensures that any scheduled timeouts from promise operations are cleared
+    jest.useFakeTimers();
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+
     service.stop();
   });
 
@@ -417,6 +427,300 @@ describe("AuthService - Comprehensive Coverage", () => {
     it("hasError() should return true when error context is set", () => {
       const hasError = service.hasError();
       expect(typeof hasError).toBe("boolean");
+    });
+  });
+
+  // ===========================
+  // TIMEOUT PROTECTION TESTS
+  // ===========================
+  // These tests verify that promise-based auth methods timeout correctly
+  // when the state machine gets stuck or doesn't complete within expected time
+
+  describe("Timeout Protection - Login", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("login() should timeout and reject if state machine doesn't respond", async () => {
+      const loginPromise = service.login({
+        email: "test@example.com",
+        password: "password123",
+      });
+
+      // Fast-forward time past the timeout
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      // Promise should reject with timeout error
+      await expect(loginPromise).rejects.toThrow(/timeout/i);
+    });
+
+    it("login() timeout error message should include timeout value", async () => {
+      const loginPromise = service.login({
+        email: "test@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(loginPromise).rejects.toThrow(
+        new RegExp(AUTH_OPERATION_TIMEOUT_MS.toString())
+      );
+    });
+  });
+
+  describe("Timeout Protection - Register", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("register() should timeout and reject if state machine doesn't respond", async () => {
+      const registerPromise = service.register({
+        email: "new@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(registerPromise).rejects.toThrow(/timeout/i);
+    });
+
+    it("register() timeout error should be distinguishable", async () => {
+      const registerPromise = service.register({
+        email: "new@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(registerPromise).rejects.toThrow(/register/i);
+    });
+  });
+
+  describe("Timeout Protection - Password Reset Operations", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("requestPasswordReset() should timeout and reject", async () => {
+      const resetPromise = service.requestPasswordReset({
+        email: "test@example.com",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(resetPromise).rejects.toThrow(/timeout/i);
+    });
+
+    it("verifyOtp() should timeout and reject", async () => {
+      const otpPromise = service.verifyOtp({
+        email: "test@example.com",
+        otp: "123456",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(otpPromise).rejects.toThrow(/timeout/i);
+    });
+
+    it("completePasswordReset() should timeout and reject", async () => {
+      const completePromise = service.completePasswordReset({
+        actionToken: "token123",
+        newPassword: "newpass123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(completePromise).rejects.toThrow(/timeout/i);
+    });
+  });
+
+  describe("Timeout Protection - Other Operations", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("completeRegistration() should timeout and reject", async () => {
+      const completePromise = service.completeRegistration({
+        actionToken: "token123",
+        newPassword: "newpass123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(completePromise).rejects.toThrow(/timeout/i);
+    });
+
+    it("refresh() should timeout and reject", async () => {
+      const refreshPromise = service.refresh();
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(refreshPromise).rejects.toThrow(/timeout/i);
+    });
+  });
+
+  describe("Timeout Protection - Session Check", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("checkSession() should use longer timeout than other operations", async () => {
+      expect(SESSION_CHECK_TIMEOUT_MS).toBeGreaterThan(
+        AUTH_OPERATION_TIMEOUT_MS
+      );
+    });
+  });
+
+  describe("Timeout Cleanup Behavior", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("timeout should clear timer on reject", async () => {
+      const loginPromise = service.login({
+        email: "test@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      try {
+        await loginPromise;
+      } catch {
+        // Expected to reject
+      }
+
+      // No pending timers should exist
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it("multiple concurrent operations should each have their own timeout", async () => {
+      const loginPromise = service.login({
+        email: "test@example.com",
+        password: "password123",
+      });
+
+      // Start another operation while first is pending
+      const registerPromise = service.register({
+        email: "new@example.com",
+        password: "password123",
+      });
+
+      // Should have multiple timers (one for each operation)
+      const timersBeforeAdvance = jest.getTimerCount();
+      expect(timersBeforeAdvance).toBeGreaterThanOrEqual(2);
+
+      // Advance time past timeout
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      // Both should reject
+      await expect(loginPromise).rejects.toThrow(/timeout/i);
+      await expect(registerPromise).rejects.toThrow(/timeout/i);
+    });
+  });
+
+  describe("Timeout Constants Validation", () => {
+    it("AUTH_OPERATION_TIMEOUT_MS should be 30 seconds", () => {
+      expect(AUTH_OPERATION_TIMEOUT_MS).toBe(30 * 1000);
+    });
+
+    it("SESSION_CHECK_TIMEOUT_MS should be 35 seconds", () => {
+      expect(SESSION_CHECK_TIMEOUT_MS).toBe(35 * 1000);
+    });
+
+    it("SESSION_CHECK_TIMEOUT_MS should be longer than AUTH_OPERATION_TIMEOUT_MS", () => {
+      expect(SESSION_CHECK_TIMEOUT_MS).toBeGreaterThan(
+        AUTH_OPERATION_TIMEOUT_MS
+      );
+    });
+  });
+
+  describe("Timeout Error Messages", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+      service.stop(); // Ensure service is stopped after each test to clean up any remaining timeouts
+    });
+
+    it("login timeout error should mention login", async () => {
+      const loginPromise = service.login({
+        email: "test@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(loginPromise).rejects.toThrow(/login/i);
+    });
+
+    it("register timeout error should mention register", async () => {
+      const registerPromise = service.register({
+        email: "new@example.com",
+        password: "password123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(registerPromise).rejects.toThrow(/register/i);
+    });
+
+    it("refresh timeout error should mention refresh", async () => {
+      const refreshPromise = service.refresh();
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(refreshPromise).rejects.toThrow(/refresh/i);
+    });
+
+    it("password reset timeout error should mention password reset", async () => {
+      const resetPromise = service.completePasswordReset({
+        actionToken: "token123",
+        newPassword: "newpass123",
+      });
+
+      jest.advanceTimersByTime(AUTH_OPERATION_TIMEOUT_MS + 1000);
+
+      await expect(resetPromise).rejects.toThrow(/password reset/i);
     });
   });
 });

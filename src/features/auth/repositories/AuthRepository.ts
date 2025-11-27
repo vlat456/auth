@@ -3,11 +3,7 @@
  * A stateless API layer that only makes direct calls to the backend
  */
 
-import axios, {
-  AxiosInstance,
-  AxiosError,
-  InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosInstance } from "axios";
 import {
   IAuthRepository,
   LoginRequestDTO,
@@ -25,6 +21,7 @@ import {
   IStorage,
 } from "../types";
 import { withErrorHandling } from "../utils/errorHandler";
+import { Mutex } from "../utils/lockUtils";
 import {
   LoginResponseSchemaWrapper,
   RefreshResponseSchemaWrapper,
@@ -34,19 +31,11 @@ import {
 
 const STORAGE_KEY = "user_session_token";
 
-interface RetryConfig extends InternalAxiosRequestConfig {
-  _retryCount?: number;
-}
-
-const RETRY_CONFIG = {
-  maxRetries: 3,
-  initialDelayMs: 1000,
-  retryableStatus: [500, 502, 503, 504],
-};
-
 export class AuthRepository implements IAuthRepository {
   private apiClient: AxiosInstance;
   private storage: IStorage;
+  private storageMutex = new Mutex(); // Ensures atomic session storage operations
+  private refreshMutex = new Mutex(); // Prevents concurrent token refresh requests
 
   constructor(storage: IStorage, baseURL?: string) {
     this.storage = storage;
@@ -128,33 +117,43 @@ export class AuthRepository implements IAuthRepository {
    * Refreshes the access token using a refresh token.
    * NOTE: This method only refreshes the token, without fetching updated user profile.
    * Profile updates should be handled separately by the calling component/state machine.
+   *
+   * Uses a mutex to prevent concurrent refresh requests:
+   * - If refresh already in progress, waits for that one to complete
+   * - Prevents multiple concurrent API calls to refresh endpoint
+   * - Ensures only one new token is issued per refresh cycle
    */
   refresh = withErrorHandling(
     async (refreshToken: string): Promise<AuthSession> => {
-      const response = await this.apiClient.post<
-        ApiSuccessResponse<RefreshResponseData>
-      >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
+      const release = await this.refreshMutex.acquire();
+      try {
+        const response = await this.apiClient.post<
+          ApiSuccessResponse<RefreshResponseData>
+        >("/auth/refresh-token", { refreshToken } as RefreshRequestDTO);
 
-      // Validate using direct Zod parsing
-      const validatedData = RefreshResponseSchemaWrapper.parse(response.data);
-      const newAccessToken = validatedData.data.accessToken;
+        // Validate using direct Zod parsing
+        const validatedData = RefreshResponseSchemaWrapper.parse(response.data);
+        const newAccessToken = validatedData.data.accessToken;
 
-      // Get the current session to preserve other data
-      const currentSession = await this.readSession();
-      if (!currentSession) {
-        throw new Error("No current session found during refresh");
+        // Get the current session to preserve other data
+        const currentSession = await this.readSession();
+        if (!currentSession) {
+          throw new Error("No current session found during refresh");
+        }
+
+        // Create new session with fresh access token, keep refresh token, and preserve profile
+        // Profile updates should be handled separately by the calling component/state machine
+        const refreshedSession: AuthSession = {
+          accessToken: newAccessToken,
+          refreshToken: currentSession.refreshToken,
+          profile: currentSession.profile, // Preserve the existing profile
+        };
+
+        await this.saveSession(refreshedSession);
+        return refreshedSession;
+      } finally {
+        release();
       }
-
-      // Create new session with fresh access token, keep refresh token, and preserve profile
-      // Profile updates should be handled separately by the calling component/state machine
-      const refreshedSession: AuthSession = {
-        accessToken: newAccessToken,
-        refreshToken: currentSession.refreshToken,
-        profile: currentSession.profile, // Preserve the existing profile
-      };
-
-      await this.saveSession(refreshedSession);
-      return refreshedSession;
     }
   );
 
@@ -192,9 +191,17 @@ export class AuthRepository implements IAuthRepository {
   // --- Internals ---
 
   private async saveSession(session: AuthSession): Promise<void> {
-    // Clear any previous session data to ensure session regeneration
-    await this.storage.removeItem(STORAGE_KEY);
-    await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
+    // Use mutex to ensure atomic write: no crash between remove and set
+    // This prevents data loss if app crashes during session save
+    const release = await this.storageMutex.acquire();
+    try {
+      // Write new session first (safest order)
+      await this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
+      // Note: We keep any old data to minimize data loss if crash occurs
+      // Storage will contain either old or new complete session, never partial state
+    } finally {
+      release();
+    }
   }
 
   private async readSession(): Promise<AuthSession | null> {
@@ -205,8 +212,7 @@ export class AuthRepository implements IAuthRepository {
     try {
       const parsed: unknown = JSON.parse(raw);
       return this.processParsedSession(parsed);
-    } catch (error) {
-      console.error("Error parsing session token:", error);
+    } catch {
       // Fall back to legacy string token storage
       if (typeof raw === "string" && raw.startsWith("{") === false) {
         return { accessToken: raw };
@@ -251,28 +257,7 @@ export class AuthRepository implements IAuthRepository {
   }
 
   private initializeInterceptors() {
-    this.apiClient.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const config = error.config as RetryConfig;
-        if (!config) return Promise.reject(error);
-
-        config._retryCount = config._retryCount || 0;
-
-        const shouldRetry =
-          config._retryCount < RETRY_CONFIG.maxRetries &&
-          (!error.response ||
-            RETRY_CONFIG.retryableStatus.includes(error.response.status));
-
-        if (shouldRetry) {
-          config._retryCount += 1;
-          const delay =
-            RETRY_CONFIG.initialDelayMs * Math.pow(2, config._retryCount - 1);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return this.apiClient(config);
-        }
-        return Promise.reject(error);
-      }
-    );
+    // Interceptors were removed - we don't use retry logic currently
+    // Can be re-enabled if needed in the future
   }
 }

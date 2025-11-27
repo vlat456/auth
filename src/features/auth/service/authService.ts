@@ -22,6 +22,10 @@ import {
   CompletePasswordResetDTO,
 } from "../types";
 import { AuthContext, AuthEvent } from "../machine/authMachine";
+import {
+  AUTH_OPERATION_TIMEOUT_MS,
+  SESSION_CHECK_TIMEOUT_MS,
+} from "../utils/authConstants";
 
 type AuthSnapshot = SnapshotFrom<ReturnType<typeof createAuthMachine>>;
 
@@ -38,6 +42,7 @@ export class AuthService {
   private actor: ActorRefFrom<ReturnType<typeof createAuthMachine>>;
   private repository: IAuthRepository;
   private stateListeners: Set<(state: AuthSnapshot) => void> = new Set();
+  private activeTimeouts: Set<NodeJS.Timeout> = new Set();
 
   constructor(repository: IAuthRepository) {
     this.repository = repository;
@@ -50,6 +55,15 @@ export class AuthService {
     });
 
     this.actor.start();
+  }
+
+  /**
+   * Helper method to safely clean up a timeout
+   * Clears the timeout and removes it from the active timeouts set
+   */
+  private cleanupTimeout(timeoutId: NodeJS.Timeout): void {
+    clearTimeout(timeoutId);
+    this.activeTimeouts.delete(timeoutId);
   }
 
   /**
@@ -145,10 +159,24 @@ export class AuthService {
 
   /**
    * Check and restore session on app start
+   *
+   * Timeout protects against state machine getting stuck during session recovery.
+   * If recovery doesn't complete within timeout, rejects with timeout error.
    */
   checkSession(): Promise<AuthSession | null> {
-    return new Promise((resolve) => {
-      const cleanup = this.subscribe((state) => {
+    return new Promise((resolve, reject) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         // Resolve when we reach a stable state (authorized or unauthorized)
         if (state.matches("authorized") || state.matches("unauthorized")) {
           cleanup();
@@ -156,16 +184,48 @@ export class AuthService {
         }
       });
 
+      // Set timeout - longer than normal ops since includes storage + network
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Session check timeout - state machine did not complete within ${SESSION_CHECK_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, SESSION_CHECK_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "CHECK_SESSION" });
     });
   }
 
   /**
    * Login with email and password
+   *
+   * Timeout protects against state machine getting stuck during login.
+   * If login doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   login(payload: LoginRequestDTO): Promise<AuthSession> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches("authorized")) {
           cleanup();
           resolve(state.context.session!);
@@ -178,16 +238,48 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Login timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "LOGIN", payload });
     });
   }
 
   /**
    * Register a new user
+   *
+   * Timeout protects against state machine getting stuck during registration.
+   * If registration doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   register(payload: RegisterRequestDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         // Registration complete when we reach authorized
         if (state.matches("authorized")) {
           cleanup();
@@ -201,16 +293,48 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Register timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "REGISTER", payload });
     });
   }
 
   /**
    * Request password reset (sends OTP to email)
+   *
+   * Timeout protects against state machine getting stuck during OTP request.
+   * If request doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   requestPasswordReset(payload: RequestOtpDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches({ unauthorized: { forgotPassword: "verifyOtp" } })) {
           cleanup();
           resolve();
@@ -223,16 +347,48 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Password reset request timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "FORGOT_PASSWORD", payload });
     });
   }
 
   /**
    * Verify OTP code (returns action token for next step)
+   *
+   * Timeout protects against state machine getting stuck during OTP verification.
+   * If verification doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   verifyOtp(payload: VerifyOtpDTO): Promise<string> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         const token =
           state.context.passwordReset?.actionToken ||
           state.context.registration?.actionToken;
@@ -246,24 +402,80 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `OTP verification timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "VERIFY_OTP", payload });
     });
   }
 
   /**
    * Complete password reset with new password
+   *
+   * Timeout protects against state machine getting stuck during password reset.
+   * If reset doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   completePasswordReset(payload: CompletePasswordResetDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches("authorized")) {
           cleanup();
           resolve();
-        } else if (state.context.error) {
+        } else if (
+          state.context.error &&
+          state.matches({
+            unauthorized: {
+              forgotPassword: "resettingPassword",
+            },
+          })
+        ) {
           cleanup();
           reject(new Error(state.context.error.message));
         }
       });
+
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Complete password reset timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
 
       this._send({ type: "RESET_PASSWORD", payload });
     });
@@ -271,10 +483,25 @@ export class AuthService {
 
   /**
    * Complete registration with action token and password
+   *
+   * Timeout protects against state machine getting stuck during registration completion.
+   * If completion doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   completeRegistration(payload: CompleteRegistrationDTO): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches("authorized")) {
           cleanup();
           resolve();
@@ -284,16 +511,48 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Complete registration timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "COMPLETE_REGISTRATION", payload });
     });
   }
 
   /**
    * Refresh the session using the refresh token
+   *
+   * Timeout protects against state machine getting stuck during token refresh.
+   * If refresh doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   refresh(): Promise<AuthSession | null> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches("authorized")) {
           cleanup();
           resolve(state.context.session);
@@ -303,16 +562,48 @@ export class AuthService {
         }
       });
 
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Refresh timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
+
       this._send({ type: "REFRESH" });
     });
   }
 
   /**
    * Logout the current user
+   *
+   * Timeout protects against state machine getting stuck during logout.
+   * If logout doesn't complete within timeout, rejects with timeout error
+   * and cleans up subscription to prevent memory leak.
    */
   logout(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cleanup = this.subscribe((state) => {
+      let timeoutId: NodeJS.Timeout;
+      let completed = false;
+
+      const cleanup = () => {
+        this.cleanupTimeout(timeoutId);
+        completed = true;
+        unsubscribe();
+      };
+
+      const unsubscribe = this.subscribe((state) => {
+        if (completed) return;
+
         if (state.matches("unauthorized")) {
           cleanup();
           resolve();
@@ -321,6 +612,23 @@ export class AuthService {
           reject(new Error(state.context.error.message));
         }
       });
+
+      // 30 second timeout - prevents indefinite hang if state machine stuck
+      timeoutId = setTimeout(() => {
+        if (!completed) {
+          cleanup();
+          // Reset machine to login state on timeout
+          this._send({ type: "CANCEL" });
+          reject(
+            new Error(
+              `Logout timeout - state machine did not complete within ${AUTH_OPERATION_TIMEOUT_MS}ms`
+            )
+          );
+        }
+      }, AUTH_OPERATION_TIMEOUT_MS);
+
+      // Store the timeout ID for cleanup
+      this.activeTimeouts.add(timeoutId);
 
       this._send({ type: "LOGOUT" });
     });
@@ -379,6 +687,12 @@ export class AuthService {
    * Stop the service when no longer needed
    */
   stop(): void {
+    // Clear all active timeouts to prevent them from firing after service is stopped
+    for (const timeoutId of this.activeTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.activeTimeouts.clear();
+
     this.actor.stop();
     this.stateListeners.clear();
   }
