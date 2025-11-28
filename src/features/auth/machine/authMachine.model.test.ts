@@ -128,10 +128,19 @@ describe("Auth Machine Model-Based Tests", () => {
       });
       await toVerifyOtp;
 
-      // Verify OTP
-      const toCompleting = waitForState(actor, (s) => 
-        stateMatches(s, { unauthorized: { register: "completingRegistration" } }));
+      // Verify OTP - this moves to resetPassword state
+      const toResetPassword = waitForState(actor, (s) =>
+        stateMatches(s, { unauthorized: { register: "resetPassword" } }));
       actor.send({ type: "VERIFY_OTP", payload: { otp: "123456" } });
+      await toResetPassword;
+
+      // Now reset password to complete registration
+      const toCompleting = waitForState(actor, (s) =>
+        stateMatches(s, { unauthorized: { register: "completingRegistration" } }));
+      actor.send({
+        type: "RESET_PASSWORD",
+        payload: { newPassword: "password123" }
+      });
       await toCompleting;
 
       // Wait for completion and login

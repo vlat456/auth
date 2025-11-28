@@ -414,9 +414,9 @@ describe("Auth Machine Integration Tests", () => {
       });
       await p2;
 
-      // Verify OTP
+      // Verify OTP - this should lead to resetPassword state
       const p3 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "completingRegistration" } })
+        s["matches"]({ unauthorized: { register: "resetPassword" } })
       );
       actor.send({
         type: "VERIFY_OTP",
@@ -424,9 +424,19 @@ describe("Auth Machine Integration Tests", () => {
       });
       await p3;
 
-      // Complete registration - this should trigger login
-      const p4 = waitForState(actor, (s) => s["matches"]("authorized"));
+      // Now reset password to complete registration
+      const p4 = waitForState(actor, (s) =>
+        s["matches"]({ unauthorized: { register: "completingRegistration" } })
+      );
+      actor.send({
+        type: "RESET_PASSWORD",
+        payload: { newPassword: "newpass123" },
+      });
       await p4;
+
+      // Complete registration - this should trigger login
+      const p5 = waitForState(actor, (s) => s["matches"]("authorized"));
+      await p5;
 
       // Verify all calls were made
       expect(mockRepo.calls).toContain("register:newuser@test.com");
@@ -553,9 +563,9 @@ describe("Auth Machine Integration Tests", () => {
       });
       await p2;
 
-      // Verify OTP (this succeeds, returns action token)
+      // Verify OTP - this should lead to resetPassword state
       const p3 = waitForState(actor, (s) =>
-        s["matches"]({ unauthorized: { register: "completingRegistration" } })
+        s["matches"]({ unauthorized: { register: "resetPassword" } })
       );
       actor.send({
         type: "VERIFY_OTP",
@@ -563,14 +573,24 @@ describe("Auth Machine Integration Tests", () => {
       });
       await p3;
 
+      // Now reset password which should trigger completion failure
+      const p4 = waitForState(actor, (s) =>
+        s["matches"]({ unauthorized: { register: "completingRegistration" } })
+      );
+      actor.send({
+        type: "RESET_PASSWORD",
+        payload: { newPassword: "newpass123" },
+      });
+      await p4;
+
       // Complete registration should fail and go back to verifyOtp
-      const p4 = waitForState(
+      const p5 = waitForState(
         actor,
         (s) =>
           s["matches"]({ unauthorized: { register: "verifyOtp" } }) &&
           s.context.error?.message === "Invalid token"
       );
-      await p4;
+      await p5;
 
       expect(
         mockRepo.calls.some((call) => call.startsWith("completeRegistration:"))
@@ -821,17 +841,14 @@ describe("Auth Machine Integration Tests", () => {
       const p1 = waitForState(
         actor,
         (s) =>
-          s["matches"]("authorized") &&
-          s.context.error?.message === "Network error during logout"
+          s["matches"]({ unauthorized: { login: "idle" } })
       );
       actor.send({ type: "LOGOUT" });
       await p1;
 
       expect(mockRepo.calls).toContain("logout");
-      expect(actor.getSnapshot().value).toEqual("authorized");
-      expect(actor.getSnapshot().context.error?.message).toBe(
-        "Network error during logout"
-      );
+      expect(actor.getSnapshot().value).toEqual({ unauthorized: { login: "idle" } });
+      expect(actor.getSnapshot().context.session).toBeNull();
     });
   });
 

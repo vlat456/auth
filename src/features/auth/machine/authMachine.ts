@@ -58,6 +58,7 @@ export type AuthContext = {
   // Shared across all flows
   session: AuthSession | null;
   error: AuthError | null;
+  isRefreshing: boolean; // Flag to track if a refresh operation is in progress
 
   // Flow-specific contexts - exist only during those flows
   registration?: RegistrationFlowContext;
@@ -344,12 +345,25 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
           return context.passwordReset;
         },
       }),
+      /**
+       * Set the refreshing flag to true to prevent concurrent refresh operations
+       */
+      setRefreshingFlag: assign({
+        isRefreshing: true,
+      }),
+      /**
+       * Clear the refreshing flag to allow new refresh operations
+       */
+      clearRefreshingFlag: assign({
+        isRefreshing: false,
+      }),
     },
   }).createMachine({
     id: "auth",
     context: {
       session: null,
       error: null,
+      isRefreshing: false,
     } as AuthContext,
     initial: "checkingSession",
     states: {
@@ -376,19 +390,24 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         meta: {
           testDescription: "Validating existing session with server"
         },
-        on: {
-          COMPLETE_REGISTRATION:
-            "#auth.unauthorized.completeRegistrationProcess",
-        },
         invoke: {
           src: "validateSessionWithServer",
           input: ({ context }) => ({ session: context.session! }),
           onDone: {
             target: "fetchingProfileAfterValidation",
           },
-          onError: {
-            target: "refreshingToken", // If validation fails, try to refresh
-          },
+          onError: [
+            {
+              guard: ({ context }) => !context.isRefreshing,
+              target: "refreshingToken", // If validation fails and no refresh in progress, try to refresh
+            },
+            {
+              target: "unauthorized", // If validation fails and a refresh is already in progress, go to unauthorized
+              actions: assign({
+                error: () => ({ message: "Session validation failed - refresh in progress" }),
+              }),
+            },
+          ],
         },
       },
       fetchingProfileAfterValidation: {
@@ -407,13 +426,11 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             ],
           },
           onError: {
-            target: "authorized", // If profile fetch fails, still go to authorized with existing session
+            target: "unauthorized", // If profile fetch fails, go to unauthorized as session may be invalid
             actions: [
               assign({
-                session: ({ context }: { context: AuthContext }) => {
-                  // Use the session from the context if profile fetch fails
-                  return context.session || null;
-                },
+                session: () => null,
+                error: () => ({ message: "Profile validation failed" }),
               }),
             ],
           },
@@ -423,10 +440,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
         meta: {
           testDescription: "Refreshing the access token using refresh token"
         },
-        on: {
-          COMPLETE_REGISTRATION:
-            "#auth.unauthorized.completeRegistrationProcess",
-        },
+        entry: "setRefreshingFlag",
         invoke: {
           id: "refresh-token",
           src: "refreshToken",
@@ -439,6 +453,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
               assign({
                 session: ({ event }: any) => event.output as AuthSession,
               }),
+              "clearRefreshingFlag",
             ],
           },
           onError: {
@@ -448,6 +463,7 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                 session: () => null,
                 error: () => ({ message: "Session refresh failed" }),
               }),
+              "clearRefreshingFlag",
             ],
           },
         },
@@ -468,13 +484,11 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             ],
           },
           onError: {
-            target: "authorized", // If profile fetch fails, still go to authorized with existing session
+            target: "unauthorized", // If profile fetch fails after refresh, go to unauthorized
             actions: [
               assign({
-                session: ({ context }: { context: AuthContext }) => {
-                  // Use the session from the context if profile fetch fails
-                  return context.session || null;
-                },
+                session: () => null,
+                error: () => ({ message: "Profile validation after refresh failed" }),
               }),
             ],
           },
@@ -663,12 +677,25 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
                     };
                   },
                   onDone: {
-                    target: "completingRegistration",
+                    target: "resetPassword",
                     actions: "setRegistrationActionToken",
                   },
                   onError: {
                     target: "verifyOtp",
                     actions: "setError",
+                  },
+                },
+              },
+              resetPassword: {
+                meta: {
+                  testDescription: "Waiting for user to enter new password after OTP verification"
+                },
+                on: {
+                  RESET_PASSWORD: {
+                    guard: ({ context }) =>
+                      !!context.registration?.actionToken,
+                    target: "completingRegistration",
+                    actions: "setRegistrationPendingPassword",
                   },
                 },
               },
@@ -879,10 +906,9 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             target: "loggingOut",
           },
           REFRESH: {
+            guard: ({ context }) => !context.isRefreshing,
             target: "refreshingToken",
           },
-          COMPLETE_REGISTRATION:
-            "#auth.unauthorized.completeRegistrationProcess",
         },
         invoke: {
           // Periodically check if the token needs a refresh
@@ -902,8 +928,8 @@ export const createAuthMachine = (authRepository: IAuthRepository) => {
             actions: ["clearSession", "clearError"],
           },
           onError: {
-            target: "authorized",
-            actions: "setError",
+            target: "unauthorized",
+            actions: ["clearSession", "clearError"],
           },
         },
       },
