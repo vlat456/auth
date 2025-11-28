@@ -390,5 +390,27 @@ describe("errorHandler", () => {
       expect(result).toBe(42);
       expect(mockFn).toHaveBeenCalledWith(21);
     });
+
+    it("should handle error without stack trace in async function", async () => {
+      const errorWithoutStack = new Error("Test error");
+      delete errorWithoutStack.stack; // Remove the stack property
+
+      const mockFn = jest.fn().mockRejectedValue(errorWithoutStack);
+      const wrappedFn = withErrorHandling(mockFn);
+
+      await expect(wrappedFn()).rejects.toThrow("Test error");
+    });
+
+    it("should handle error without stack trace in sync function", () => {
+      const errorWithoutStack = new Error("Test error");
+      delete errorWithoutStack.stack; // Remove the stack property
+
+      const mockFn = () => {
+        throw errorWithoutStack;
+      };
+      const wrappedFn = withErrorHandling(mockFn);
+
+      expect(() => wrappedFn()).toThrow("Test error");
+    });
   });
 });

@@ -13,6 +13,8 @@ import {
   safeExtractErrorMessage,
   isValidRequestOtp,
   isValidVerifyOtp,
+  safeExtractSessionOutput,
+  safeExtractValue,
 } from "./safetyUtils";
 import { LoginRequestDTO, AuthSession, UserProfile } from "../types";
 
@@ -681,5 +683,72 @@ describe("hasValidCredentials", () => {
         password: 123,
       } as any)
     ).toBe(false);
+  });
+});
+
+describe("safeGetStringFromContext", () => {
+  it("should return the value when it is a string", () => {
+    expect(safeGetStringFromContext("test-value")).toBe("test-value");
+  });
+
+  it("should return the fallback when value is undefined", () => {
+    expect(safeGetStringFromContext(undefined)).toBe("");
+  });
+
+  it("should return the fallback when value is not a string", () => {
+    expect(safeGetStringFromContext(123 as any)).toBe("");
+    expect(safeGetStringFromContext(null as any)).toBe("");
+    expect(safeGetStringFromContext({} as any)).toBe("");
+  });
+
+  it("should return custom fallback value", () => {
+    expect(safeGetStringFromContext(undefined, "custom-fallback")).toBe("custom-fallback");
+  });
+});
+
+describe("safeExtractSessionOutput", () => {
+  it("should return session when output is a valid AuthSession", () => {
+    const validSession = { accessToken: "token123" };
+    const eventWithValidOutput = { output: validSession };
+
+    expect(safeExtractSessionOutput(eventWithValidOutput as any)).toEqual(validSession);
+  });
+
+  it("should return undefined when output is not a valid AuthSession", () => {
+    const eventWithInvalidOutput = { output: { invalid: "session" } };
+
+    expect(safeExtractSessionOutput(eventWithInvalidOutput as any)).toBeUndefined();
+  });
+
+  it("should return undefined when output is missing", () => {
+    const eventWithoutOutput = {};
+
+    expect(safeExtractSessionOutput(eventWithoutOutput as any)).toBeUndefined();
+  });
+});
+
+describe("safeExtractValue", () => {
+  it("should return value when payload exists and has the key with valid type", () => {
+    const eventWithValidValue = { payload: { testKey: "valid-string" } };
+    const result = safeExtractValue(eventWithValidValue as any, "testKey", (v): v is string => typeof v === "string");
+    expect(result).toBe("valid-string");
+  });
+
+  it("should return undefined when payload does not exist", () => {
+    const eventWithoutPayload = {};
+    const result = safeExtractValue(eventWithoutPayload as any, "testKey", (v): v is string => typeof v === "string");
+    expect(result).toBeUndefined();
+  });
+
+  it("should return undefined when key does not exist in payload", () => {
+    const eventWithPayloadButNoKey = { payload: { otherKey: "value" } };
+    const result = safeExtractValue(eventWithPayloadButNoKey as any, "testKey", (v): v is string => typeof v === "string");
+    expect(result).toBeUndefined();
+  });
+
+  it("should return undefined when type guard fails", () => {
+    const eventWithWrongType = { payload: { testKey: 123 } }; // number instead of string
+    const result = safeExtractValue(eventWithWrongType as any, "testKey", (v): v is string => typeof v === "string");
+    expect(result).toBeUndefined();
   });
 });
